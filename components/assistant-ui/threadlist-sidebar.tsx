@@ -23,13 +23,13 @@ export function ThreadListSidebar({
         <div className="aui-sidebar-header-content flex items-center justify-between">
           <SidebarMenu>
             <SidebarMenuItem>
-                <Image
-                  src="/logo_aire.png"
-                  alt="Aire Logo"
-                  width={150}
-                  height={70}
-                  className="ml-4"
-                />
+              <Image
+                src="/logo_aire.png"
+                alt="Aire Logo"
+                width={150}
+                height={70}
+                className="ml-4"
+              />
             </SidebarMenuItem>
           </SidebarMenu>
         </div>

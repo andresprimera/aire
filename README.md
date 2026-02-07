@@ -1,5 +1,34 @@
 This is the [assistant-ui](https://github.com/Yonom/assistant-ui) starter project.
 
+## Code Style & Formatting
+
+This project uses [Biome](https://biomejs.dev/) for linting and formatting to maintain consistent code style.
+
+### Standards
+- **Quotes**: Double quotes (`"`)
+- **Trailing commas**: Always
+- **Indentation**: 2 spaces
+- **Line endings**: LF (Unix-style)
+- **Semicolons**: Always
+
+### Editor Setup
+
+We recommend installing the Biome extension for your editor:
+- **VS Code**: The project includes VS Code settings that will prompt you to install the Biome extension
+- **Other editors**: Install the EditorConfig plugin to respect `.editorconfig` settings
+
+### Running Linter
+
+```bash
+# Check for issues
+npm run lint
+
+# Auto-fix issues
+npm run lint:fix
+```
+
+All code is automatically formatted according to `biome.json` configuration.
+
 ## Getting Started
 
 First, add your OpenAI API key to `.env.local` file:

@@ -17,7 +17,7 @@ export function LoginForm({
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter()
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,10 +37,10 @@ export function LoginForm({
     setIsLoading(false);
 
     if (result?.error) {
-      router.push('/');
+      router.push("/");
       setError("Invalid email or password");
     } else {
-      router.push('/')
+      router.push("/");
       // Use window.location for full page reload to ensure session is detected by middleware
       window.location.href = callbackUrl;
     }
@@ -53,13 +53,13 @@ export function LoginForm({
           <form className="p-6 md:p-8" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col items-center text-center">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
+                <h1 className="font-bold text-2xl">Welcome back</h1>
                 <p className="text-balance text-muted-foreground">
                   Login to your Aire account
                 </p>
               </div>
               {error && (
-                <div className="text-sm text-red-500 text-center">{error}</div>
+                <div className="text-center text-red-500 text-sm">{error}</div>
               )}
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
@@ -103,7 +103,7 @@ export function LoginForm({
           </div>
         </CardContent>
       </Card>
-      <div className="text-balance text-center text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 hover:[&_a]:text-primary">
+      <div className="text-balance text-center text-muted-foreground text-xs [&_a]:underline [&_a]:underline-offset-4 hover:[&_a]:text-primary">
         By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
         and <a href="#">Privacy Policy</a>.
       </div>

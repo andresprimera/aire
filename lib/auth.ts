@@ -21,7 +21,9 @@ export const authOptions: NextAuthOptions = {
 
         await connectDB();
 
-        const user = await User.findOne({ email: credentials.email.toLowerCase() });
+        const user = await User.findOne({
+          email: credentials.email.toLowerCase(),
+        });
 
         if (!user) {
           throw new Error("Invalid credentials");
@@ -29,7 +31,7 @@ export const authOptions: NextAuthOptions = {
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
-          user.password
+          user.password,
         );
 
         if (!isPasswordValid) {
@@ -40,6 +42,7 @@ export const authOptions: NextAuthOptions = {
           id: user._id.toString(),
           email: user.email,
           name: user.name,
+          isAdmin: user.isAdmin || false,
         };
       },
     }),
@@ -54,12 +57,14 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.isAdmin = user.isAdmin || false;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.isAdmin = (token.isAdmin as boolean) || false;
       }
       return session;
     },

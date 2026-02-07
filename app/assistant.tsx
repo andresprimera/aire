@@ -15,21 +15,14 @@ import {
 import { ThreadListSidebar } from "@/components/assistant-ui/threadlist-sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const agentTypes = [
   { id: "sales", label: "Proposals & Sales" },
@@ -38,13 +31,14 @@ const agentTypes = [
 
 export const Assistant = () => {
   const [selectedAgent, setSelectedAgent] = useState(agentTypes[0]);
+  const router = useRouter();
 
   const transport = useMemo(
     () =>
       new AssistantChatTransport({
         api: `/api/agents/${selectedAgent.id}`,
       }),
-    [selectedAgent.id]
+    [selectedAgent.id],
   );
 
   const runtime = useChatRuntime({ transport });
@@ -58,41 +52,35 @@ export const Assistant = () => {
             <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
               <SidebarTrigger />
               <Separator orientation="vertical" className="mr-2 h-4" />
-<DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-1">
-                          {selectedAgent.label}
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        {agentTypes.map((agent) => (
-                          <DropdownMenuItem
-                            key={agent.id}
-                            onClick={() => setSelectedAgent(agent)}
-                          >
-                            {agent.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink
-                      href="https://www.assistant-ui.com/docs/getting-started"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Build Your Own ChatGPT UX
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Starter Template</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
+              <div className="flex flex-1 items-center justify-between gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      {selectedAgent.label}
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {agentTypes.map((agent) => (
+                      <DropdownMenuItem
+                        key={agent.id}
+                        onClick={() => setSelectedAgent(agent)}
+                      >
+                        {agent.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/admin")}
+                  aria-label="Open settings"
+                  title="Open settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </div>
             </header>
             <div className="flex-1 overflow-hidden">
               <Thread />
