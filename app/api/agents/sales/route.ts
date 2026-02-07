@@ -3,9 +3,9 @@ import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 
 const salesAgent = new ToolLoopAgent({
-  model: openai("gpt-4.1-nano"),
+  model: openai("gpt-4o"),
   instructions:
-    "You are an AI agent specialized in proposals and sales. Help users create business proposals, respond to potential customer inquiries, and close sales effectively. Important: Answer in the language the customer uses.",
+    "You are an AI agent specialized in proposals and sales. Help users create business proposals, respond to potential customer inquiries, and close sales effectively. You can analyze images and documents that users share. Important: Answer in the language the customer uses.",
   tools: {
     calculateDiscount: tool({
       description: "Calculate a discount for a given price and percentage",

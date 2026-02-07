@@ -3,9 +3,9 @@ import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 
 const supportAgent = new ToolLoopAgent({
-  model: openai("gpt-4.1-nano"),
+  model: openai("gpt-4o"),
   instructions:
-    "You are an AI agent for post-sales support. Help customers with inquiries about purchased products, problem resolution, order tracking, and any assistance needed after a purchase. Important: Answer in the language the customer uses.",
+    "You are an AI agent for post-sales support. Help customers with inquiries about purchased products, problem resolution, order tracking, and any assistance needed after a purchase. You can analyze images and documents that users share. Important: Answer in the language the customer uses.",
   tools: {
     lookupOrder: tool({
       description: "Look up an order by order ID",
