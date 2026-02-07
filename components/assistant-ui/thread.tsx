@@ -34,7 +34,11 @@ import {
 } from "lucide-react";
 import type { FC } from "react";
 
-export const Thread: FC = () => {
+interface ThreadProps {
+  selectedAgentId?: string;
+}
+
+export const Thread: FC<ThreadProps> = ({ selectedAgentId }) => {
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root @container flex h-full flex-col bg-background"
@@ -47,7 +51,7 @@ export const Thread: FC = () => {
         className="aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-4"
       >
         <AssistantIf condition={({ thread }) => thread.isEmpty}>
-          <ThreadWelcome />
+          <ThreadWelcome selectedAgentId={selectedAgentId} />
         </AssistantIf>
 
         <ThreadPrimitive.Messages
@@ -81,20 +85,24 @@ const ThreadScrollToBottom: FC = () => {
   );
 };
 
-const ThreadWelcome: FC = () => {
+const ThreadWelcome: FC<ThreadProps> = ({ selectedAgentId }) => {
+  const isBusinessPlanBuilder = selectedAgentId === "business";
+
   return (
     <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-(--thread-max-width) grow flex-col">
       <div className="aui-thread-welcome-center flex w-full grow flex-col items-center justify-center">
         <div className="aui-thread-welcome-message flex size-full flex-col justify-center px-4">
           <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in font-semibold text-2xl duration-200">
-            Hello there!
+            {isBusinessPlanBuilder ? "Business Plan Builder" : "Hello there!"}
           </h1>
           <p className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in text-muted-foreground text-xl delay-75 duration-200">
-            How can I help you today?
+            {isBusinessPlanBuilder
+              ? "Upload your documents to start a business plan"
+              : "How can I help you today?"}
           </p>
         </div>
       </div>
-      <ThreadSuggestions />
+      <ThreadSuggestions selectedAgentId={selectedAgentId} />
     </div>
   );
 };
@@ -112,7 +120,14 @@ const SUGGESTIONS = [
   },
 ] as const;
 
-const ThreadSuggestions: FC = () => {
+const ThreadSuggestions: FC<ThreadProps> = ({ selectedAgentId }) => {
+  const isBusinessPlanBuilder = selectedAgentId === "business";
+
+  // Don't show suggestions for business plan builder
+  if (isBusinessPlanBuilder) {
+    return null;
+  }
+
   return (
     <div className="aui-thread-welcome-suggestions grid w-full @md:grid-cols-2 gap-2 pb-4">
       {SUGGESTIONS.map((suggestion, index) => (
