@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import User from "@/lib/models/user";
+import User, { IUser } from "@/lib/models/user";
 import {
   extractTextFromDocx,
   fileToBuffer,
@@ -151,7 +151,9 @@ Important: Answer in the language the customer uses.`,
           }
 
           await connectDB();
-          const updateData: any = {};
+          const updateData: Partial<
+            Pick<IUser, "logo" | "primaryColor" | "secondaryColor">
+          > = {};
           if (logo) updateData.logo = logo;
           if (primaryColor) updateData.primaryColor = primaryColor;
           if (secondaryColor) updateData.secondaryColor = secondaryColor;

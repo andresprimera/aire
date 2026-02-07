@@ -179,11 +179,21 @@ export async function createBusinessPlanFromTemplate(
     if (logoData) {
       // Handle base64 encoded logo
       try {
+        // Extract image type from data URL prefix if present
+        const dataUrlMatch = logoData.match(/^data:image\/(\w+);base64,/);
+        if (dataUrlMatch) {
+          const format = dataUrlMatch[1].toLowerCase();
+          // Map format to supported types
+          if (format === "jpeg") {
+            imageType = "jpg";
+          } else if (format === "png" || format === "gif" || format === "bmp") {
+            imageType = format as "png" | "gif" | "bmp";
+          }
+        }
+
         // Remove data URL prefix if present
         const base64Data = logoData.replace(/^data:image\/\w+;base64,/, "");
         imageBuffer = Buffer.from(base64Data, "base64");
-        // Default to PNG for base64 data
-        imageType = "png";
       } catch (error) {
         console.error("Error decoding base64 logo:", error);
       }

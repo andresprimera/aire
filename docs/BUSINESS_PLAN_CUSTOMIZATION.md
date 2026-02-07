@@ -82,8 +82,6 @@ I've saved these for future use. Now, let's gather some information about your s
 ```
 
 **3. createBusinessPlanDocx Tool (Updated)**
-
-**3. createBusinessPlanDocx Tool (Updated)**
 ```typescript
 {
   title: string;                    // Document title
@@ -144,8 +142,6 @@ await createBusinessPlanDocx({
 4. **Storage**: Saves to MongoDB user document via `saveBranding` tool
 5. **Retrieval**: Automatically loads via `getBranding` tool when generating documents
 6. **Application**: Applied to document through `createBusinessPlanFromTemplate` function
-
-### Database Storage
 
 ### Database Storage
 
