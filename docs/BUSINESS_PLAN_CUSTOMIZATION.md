@@ -86,12 +86,12 @@ I've saved these for future use. Now, let's gather some information about your s
 {
   title: string;                    // Document title
   sections: BusinessPlanSection[];  // Array of sections
-  logoPath?: string;               // Optional override: Absolute path to logo file
   primaryColor?: string;           // Optional override: Hex color for H1
   secondaryColor?: string;         // Optional override: Hex color for H2
 }
 
-// Automatically uses stored user branding if parameters are not provided
+// Automatically uses stored user branding (logo and colors) if parameters are not provided
+// Logo is always retrieved from database as base64 - no file paths used
 ```
 
 #### User Model Schema
