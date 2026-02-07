@@ -13,6 +13,8 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/register");
 
+  const isAdminPage = request.nextUrl.pathname.startsWith("/admin");
+
   // Redirect authenticated users away from auth pages
   if (isAuthPage && isAuthenticated) {
     return NextResponse.redirect(new URL("/", request.url));
@@ -23,6 +25,12 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Redirect non-admin users away from admin pages
+  // Note: token check is required for TypeScript null safety despite isAuthenticated
+  if (isAdminPage && isAuthenticated && token && !token.isAdmin) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();
