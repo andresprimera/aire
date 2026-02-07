@@ -21,7 +21,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Settings } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { ChevronDown, Settings, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -41,6 +49,7 @@ export const Assistant = () => {
   );
 
   const [selectedAgent, setSelectedAgent] = useState(visibleAgents[0]);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const transport = useMemo(
     () =>
@@ -80,17 +89,44 @@ export const Assistant = () => {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                {session?.user?.isAdmin && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push("/admin")}
-                    aria-label="Open settings"
-                    title="Open settings"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+                    <SheetTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label="Open menu"
+                        title="Open menu"
+                      >
+                        <Menu className="h-4 w-4" />
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right">
+                      <SheetHeader>
+                        <SheetTitle>Menu</SheetTitle>
+                        <SheetDescription>
+                          Additional options and settings will appear here.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="py-4">
+                        <p className="text-muted-foreground text-sm">
+                          Placeholder content for future features.
+                        </p>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                  {session?.user?.isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push("/admin")}
+                      aria-label="Open settings"
+                      title="Open settings"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </header>
             <div className="flex-1 overflow-hidden">
