@@ -2,6 +2,7 @@ import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 import * as path from "node:path";
+import * as fs from "node:fs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
@@ -208,12 +209,6 @@ Important: Answer in the language the customer uses.`,
             }),
           )
           .describe("Array of sections with titles and content"),
-        logoPath: z
-          .string()
-          .optional()
-          .describe(
-            "Optional override: Absolute path to logo image file. If not specified, will use stored user logo or default Aire logo.",
-          ),
         primaryColor: z
           .string()
           .optional()
@@ -227,13 +222,7 @@ Important: Answer in the language the customer uses.`,
             "Optional override: Secondary color for subheadings in hex format (e.g., '#3B82F6'). If not specified, will use stored user color or default lighter blue.",
           ),
       }),
-      execute: async ({
-        title,
-        sections,
-        logoPath,
-        primaryColor,
-        secondaryColor,
-      }) => {
+      execute: async ({ title, sections, primaryColor, secondaryColor }) => {
         try {
           // Get stored branding if available
           const session = await getServerSession(authOptions);
@@ -255,22 +244,28 @@ Important: Answer in the language the customer uses.`,
           const finalPrimaryColor = primaryColor || storedPrimaryColor;
           const finalSecondaryColor = secondaryColor || storedSecondaryColor;
 
-          // Handle logo: prefer provided path, then stored base64, then default path
-          let finalLogoPath = logoPath;
-          let finalLogoData = null;
+          // Handle logo: use stored base64, or load default logo as base64
+          let finalLogoData = storedLogo;
 
-          if (!finalLogoPath && storedLogo) {
-            // Use stored base64 logo
-            finalLogoData = storedLogo;
-          } else if (!finalLogoPath) {
-            // Use default logo
-            finalLogoPath = path.join(process.cwd(), "public", "logo_aire.png");
+          if (!finalLogoData) {
+            // Load default logo and convert to base64
+            try {
+              const defaultLogoPath = path.join(
+                process.cwd(),
+                "public",
+                "logo_aire.png",
+              );
+              const logoBuffer = fs.readFileSync(defaultLogoPath);
+              finalLogoData = logoBuffer.toString("base64");
+            } catch (error) {
+              console.error("Error loading default logo:", error);
+              // Continue without logo if default can't be loaded
+            }
           }
 
           const buffer = await createBusinessPlanFromTemplate({
             title,
             sections,
-            logoPath: finalLogoPath,
             logoData: finalLogoData || undefined,
             primaryColor: finalPrimaryColor || undefined,
             secondaryColor: finalSecondaryColor || undefined,
