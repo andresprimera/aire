@@ -9,7 +9,10 @@ import {
   TextRun,
   HeadingLevel,
   AlignmentType,
+  ImageRun,
 } from "docx";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 /**
  * Extract text content from a DOCX file
@@ -55,6 +58,17 @@ export interface BusinessPlanSection {
   title: string;
   content: string;
   level?: number; // Heading level (1, 2, 3)
+}
+
+/**
+ * Business Plan Template Options Interface
+ */
+export interface BusinessPlanTemplateOptions {
+  title: string;
+  sections: BusinessPlanSection[];
+  logoPath?: string; // Path to logo image file
+  primaryColor?: string; // Primary color in hex format (e.g., "#1E40AF")
+  secondaryColor?: string; // Secondary color in hex format
 }
 
 /**
@@ -131,6 +145,138 @@ export async function createBusinessPlanDocx(
     console.error("Error creating DOCX:", error);
     throw new Error(
       `Failed to create DOCX file "${title}". Details: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
+}
+
+/**
+ * Create a DOCX document from a template with logo and color customization
+ * @param options - Template options including title, sections, logo, and colors
+ * @returns Buffer containing the DOCX file
+ */
+export async function createBusinessPlanFromTemplate(
+  options: BusinessPlanTemplateOptions,
+): Promise<Buffer> {
+  try {
+    const { title, sections, logoPath, primaryColor, secondaryColor } = options;
+
+    // For now, we'll use the existing createBusinessPlanDocx function
+    // and enhance it with logo and colors
+    const paragraphs: Paragraph[] = [];
+
+    // Add logo if provided
+    if (logoPath && fs.existsSync(logoPath)) {
+      try {
+        const imageBuffer = fs.readFileSync(logoPath);
+        // Determine image type from file extension
+        const ext = path.extname(logoPath).toLowerCase();
+        let imageType: "jpg" | "png" | "gif" | "bmp" = "png";
+        if (ext === ".jpg" || ext === ".jpeg") {
+          imageType = "jpg";
+        } else if (ext === ".gif") {
+          imageType = "gif";
+        } else if (ext === ".bmp") {
+          imageType = "bmp";
+        }
+
+        paragraphs.push(
+          new Paragraph({
+            children: [
+              new ImageRun({
+                type: imageType,
+                data: imageBuffer,
+                transformation: {
+                  width: 200,
+                  height: 100,
+                },
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+          }),
+        );
+      } catch (error) {
+        console.error("Error adding logo to document:", error);
+        // Continue without logo if there's an error
+      }
+    }
+
+    // Add title with primary color if specified
+    paragraphs.push(
+      new Paragraph({
+        text: title,
+        heading: HeadingLevel.TITLE,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
+      }),
+    );
+
+    // Add each section
+    for (const section of sections) {
+      const headingLevel =
+        section.level === 2
+          ? HeadingLevel.HEADING_2
+          : section.level === 3
+            ? HeadingLevel.HEADING_3
+            : HeadingLevel.HEADING_1;
+
+      // Add section heading
+      paragraphs.push(
+        new Paragraph({
+          text: section.title,
+          heading: headingLevel,
+          spacing: { before: 300, after: 200 },
+        }),
+      );
+
+      // Split content into paragraphs and add them
+      const contentParagraphs = section.content
+        .split("\n")
+        .filter((p) => p.trim().length > 0);
+
+      for (const para of contentParagraphs) {
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun(para)],
+            spacing: { after: 120 },
+          }),
+        );
+      }
+    }
+
+    // Create document with styling
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: paragraphs,
+        },
+      ],
+      styles: {
+        default: {
+          heading1: {
+            run: {
+              color: primaryColor?.replace("#", "") || "1E40AF",
+              bold: true,
+            },
+          },
+          heading2: {
+            run: {
+              color: secondaryColor?.replace("#", "") || "3B82F6",
+              bold: true,
+            },
+          },
+        },
+      },
+    });
+
+    // Generate buffer
+    const buffer = await Packer.toBuffer(doc);
+    return buffer;
+  } catch (error) {
+    console.error("Error creating DOCX from template:", error);
+    throw new Error(
+      `Failed to create DOCX file from template. Details: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 }

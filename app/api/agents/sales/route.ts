@@ -5,7 +5,7 @@ import {
   extractTextFromDocx,
   fileToBuffer,
   isDocxFile,
-  createBusinessPlanDocx,
+  createBusinessPlanFromTemplate,
 } from "@/lib/document-processor";
 
 const salesAgent = new ToolLoopAgent({
@@ -15,9 +15,15 @@ const salesAgent = new ToolLoopAgent({
 Your workflow:
 1. When a user requests a business plan, start by asking clarifying questions to gather requirements (company name, industry, target market, funding needs, etc.)
 2. You can analyze any documents the user shares (DOCX, PDF, images) to gather information
-3. Once you have sufficient information, create a detailed first draft of the business plan
-4. After providing the draft, iterate and refine based on user feedback
-5. When the user is satisfied, generate the final business plan as a DOCX file using the createBusinessPlanDocx tool
+3. Ask the user if they want to customize the business plan with their company logo and brand colors (optional)
+4. Once you have sufficient information, create a detailed first draft of the business plan
+5. After providing the draft, iterate and refine based on user feedback
+6. When the user is satisfied, generate the final business plan as a DOCX file using the createBusinessPlanDocx tool
+
+Customization options:
+- Logo: Users can provide a logo file path (e.g., "/logo.png") or use the default
+- Primary Color: Main heading color in hex format (e.g., "#1E40AF")
+- Secondary Color: Subheading color in hex format (e.g., "#3B82F6")
 
 You can have multiple back-and-forth conversations to refine the plan. The final deliverable should always be a professionally formatted DOCX document.
 
@@ -67,7 +73,7 @@ Important: Answer in the language the customer uses.`,
     }),
     createBusinessPlanDocx: tool({
       description:
-        "Create a professionally formatted DOCX file for a business plan. Use this when the user is ready for the final document. The document will be provided as a downloadable file.",
+        "Create a professionally formatted DOCX file for a business plan with optional logo and color customization. Use this when the user is ready for the final document. The document will be provided as a downloadable file.",
       inputSchema: z.object({
         title: z
           .string()
@@ -84,22 +90,56 @@ Important: Answer in the language the customer uses.`,
             }),
           )
           .describe("Array of sections with titles and content"),
+        logoPath: z
+          .string()
+          .optional()
+          .describe(
+            "Path to logo image file (e.g., 'public/logo_aire.png'). Use the default Aire logo if not specified.",
+          ),
+        primaryColor: z
+          .string()
+          .optional()
+          .describe(
+            "Primary color for headings in hex format (e.g., '#1E40AF'). Default is blue.",
+          ),
+        secondaryColor: z
+          .string()
+          .optional()
+          .describe(
+            "Secondary color for subheadings in hex format (e.g., '#3B82F6'). Default is lighter blue.",
+          ),
       }),
-      execute: async ({ title, sections }) => {
+      execute: async ({
+        title,
+        sections,
+        logoPath,
+        primaryColor,
+        secondaryColor,
+      }) => {
         try {
-          const buffer = await createBusinessPlanDocx(title, sections);
+          // Use the default logo if not specified
+          const finalLogoPath =
+            logoPath || "/home/runner/work/aire/aire/public/logo_aire.png";
+
+          const buffer = await createBusinessPlanFromTemplate({
+            title,
+            sections,
+            logoPath: finalLogoPath,
+            primaryColor,
+            secondaryColor,
+          });
           const base64 = buffer.toString("base64");
 
           return {
             success: true,
-            message: `Business plan "${title}" has been created successfully as a DOCX file.`,
+            message: `Business plan "${title}" has been created successfully as a DOCX file with custom branding.`,
             fileData: {
               content: base64,
               filename: `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.docx`,
               mimeType:
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             },
-            note: "The DOCX file has been generated. The user should be able to download it.",
+            note: "The DOCX file has been generated with logo and custom colors. The user should be able to download it.",
           };
         } catch (error) {
           console.error("Error creating business plan DOCX:", error);
