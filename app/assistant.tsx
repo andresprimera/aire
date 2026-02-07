@@ -75,6 +75,8 @@ export const Assistant = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => router.push("/admin")}
+                  aria-label="Open settings"
+                  title="Open settings"
                 >
                   <Settings className="h-4 w-4" />
                 </Button>

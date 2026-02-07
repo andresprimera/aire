@@ -31,6 +31,8 @@ export default function AdminPage() {
             variant="outline"
             size="icon"
             onClick={() => router.push("/")}
+            aria-label="Back to home"
+            title="Back to home"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

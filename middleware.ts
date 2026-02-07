@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
-  const isAuthenticated = true;
+  const isAuthenticated = Boolean(token);
 
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/login") ||
