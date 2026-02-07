@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 const agentTypes = [
   { id: "sales", label: "Proposals & Sales" },
@@ -32,6 +33,7 @@ const agentTypes = [
 export const Assistant = () => {
   const [selectedAgent, setSelectedAgent] = useState(agentTypes[0]);
   const router = useRouter();
+  const { data: session } = useSession();
 
   const transport = useMemo(
     () =>
@@ -71,15 +73,17 @@ export const Assistant = () => {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push("/admin")}
-                  aria-label="Open settings"
-                  title="Open settings"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
+                {session?.user?.isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push("/admin")}
+                    aria-label="Open settings"
+                    title="Open settings"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </header>
             <div className="flex-1 overflow-hidden">
