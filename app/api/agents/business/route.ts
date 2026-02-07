@@ -1,5 +1,7 @@
 import { ToolLoopAgent, createAgentUIStreamResponse } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const businessAgent = new ToolLoopAgent({
   model: openai("gpt-4.1-nano"),
@@ -9,6 +11,11 @@ const businessAgent = new ToolLoopAgent({
 });
 
 export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.isAdmin) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
   const { messages } = await request.json();
 
   return createAgentUIStreamResponse({

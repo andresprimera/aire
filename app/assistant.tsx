@@ -28,13 +28,19 @@ import { useSession } from "next-auth/react";
 const agentTypes = [
   { id: "sales", label: "Proposals & Sales" },
   { id: "support", label: "Post-Sales Support" },
-  { id: "business", label: "Business Plans" },
+  { id: "business", label: "Business Plans", adminOnly: true },
 ];
 
 export const Assistant = () => {
-  const [selectedAgent, setSelectedAgent] = useState(agentTypes[0]);
   const router = useRouter();
   const { data: session } = useSession();
+
+  const isAdmin = session?.user?.isAdmin ?? false;
+  const visibleAgents = agentTypes.filter(
+    (agent) => !("adminOnly" in agent) || agent.adminOnly !== true || isAdmin,
+  );
+
+  const [selectedAgent, setSelectedAgent] = useState(visibleAgents[0]);
 
   const transport = useMemo(
     () =>
@@ -64,7 +70,7 @@ export const Assistant = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    {agentTypes.map((agent) => (
+                    {visibleAgents.map((agent) => (
                       <DropdownMenuItem
                         key={agent.id}
                         onClick={() => setSelectedAgent(agent)}
