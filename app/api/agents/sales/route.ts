@@ -1,0 +1,62 @@
+import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
+import { z } from "zod";
+import { openai } from "@ai-sdk/openai";
+
+const salesAgent = new ToolLoopAgent({
+  model: openai("gpt-4.1-nano"),
+  instructions:
+    "You are an AI agent specialized in proposals and sales. Help users create business proposals, respond to potential customer inquiries, and close sales effectively. Important: Answer in the language the customer uses.",
+  tools: {
+    calculateDiscount: tool({
+      description: "Calculate a discount for a given price and percentage",
+      inputSchema: z.object({
+        price: z.number().describe("The original price"),
+        discountPercent: z
+          .number()
+          .describe("The discount percentage (e.g., 10 for 10%)"),
+      }),
+      execute: async ({ price, discountPercent }) => {
+        const discount = price * (discountPercent / 100);
+        const finalPrice = price - discount;
+        return {
+          originalPrice: price,
+          discountPercent,
+          discountAmount: discount,
+          finalPrice,
+        };
+      },
+    }),
+    generateProposalOutline: tool({
+      description: "Generate a proposal outline based on client needs",
+      inputSchema: z.object({
+        clientName: z.string().describe("The name of the client"),
+        projectType: z.string().describe("The type of project or service"),
+        budget: z.number().optional().describe("The client budget if known"),
+      }),
+      execute: async ({ clientName, projectType, budget }) => {
+        return {
+          clientName,
+          projectType,
+          budget: budget ?? "To be discussed",
+          sections: [
+            "Executive Summary",
+            "Project Scope",
+            "Timeline",
+            "Deliverables",
+            "Pricing",
+            "Terms & Conditions",
+          ],
+        };
+      },
+    }),
+  },
+});
+
+export async function POST(request: Request) {
+  const { messages } = await request.json();
+
+  return createAgentUIStreamResponse({
+    agent: salesAgent,
+    uiMessages: messages,
+  });
+}

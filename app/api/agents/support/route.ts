@@ -1,0 +1,72 @@
+import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
+import { z } from "zod";
+import { openai } from "@ai-sdk/openai";
+
+const supportAgent = new ToolLoopAgent({
+  model: openai("gpt-4.1-nano"),
+  instructions:
+    "You are an AI agent for post-sales support. Help customers with inquiries about purchased products, problem resolution, order tracking, and any assistance needed after a purchase. Important: Answer in the language the customer uses.",
+  tools: {
+    lookupOrder: tool({
+      description: "Look up an order by order ID",
+      inputSchema: z.object({
+        orderId: z.string().describe("The order ID to look up"),
+      }),
+      execute: async ({ orderId }) => {
+        // Simulated order lookup
+        return {
+          orderId,
+          status: "Shipped",
+          estimatedDelivery: "2025-02-05",
+          trackingNumber: "1Z999AA10123456784",
+          items: ["Product A", "Product B"],
+        };
+      },
+    }),
+    createTicket: tool({
+      description: "Create a support ticket for an issue",
+      inputSchema: z.object({
+        subject: z.string().describe("The subject of the ticket"),
+        description: z.string().describe("Detailed description of the issue"),
+        priority: z
+          .enum(["low", "medium", "high"])
+          .describe("Priority level of the ticket"),
+      }),
+      execute: async ({ subject, description, priority }) => {
+        const ticketId = `TKT-${Date.now()}`;
+        return {
+          ticketId,
+          subject,
+          description,
+          priority,
+          status: "Open",
+          createdAt: new Date().toISOString(),
+        };
+      },
+    }),
+    checkWarranty: tool({
+      description: "Check warranty status for a product",
+      inputSchema: z.object({
+        productId: z.string().describe("The product ID or serial number"),
+      }),
+      execute: async ({ productId }) => {
+        // Simulated warranty check
+        return {
+          productId,
+          warrantyStatus: "Active",
+          expirationDate: "2026-01-31",
+          coverageType: "Full Coverage",
+        };
+      },
+    }),
+  },
+});
+
+export async function POST(request: Request) {
+  const { messages } = await request.json();
+
+  return createAgentUIStreamResponse({
+    agent: supportAgent,
+    uiMessages: messages,
+  });
+}
