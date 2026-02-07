@@ -2,6 +2,10 @@ import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 import * as path from "node:path";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { connectDB } from "@/lib/db";
+import User from "@/lib/models/user";
 import {
   extractTextFromDocx,
   fileToBuffer,
@@ -15,16 +19,19 @@ const salesAgent = new ToolLoopAgent({
 
 Your workflow:
 1. When a user requests a business plan, start by asking clarifying questions to gather requirements (company name, industry, target market, funding needs, etc.)
-2. You can analyze any documents the user shares (DOCX, PDF, images) to gather information
-3. Ask the user if they want to customize the business plan with their company logo and brand colors (optional)
-4. Once you have sufficient information, create a detailed first draft of the business plan
-5. After providing the draft, iterate and refine based on user feedback
-6. When the user is satisfied, generate the final business plan as a DOCX file using the createBusinessPlanDocx tool
+2. Analyze any documents the user shares (DOCX, PDF, images) to gather information
+3. **IMPORTANT - Branding Extraction**: Actively look for and extract branding information from any provided documents:
+   - Company logo (extract as base64 if present in images)
+   - Brand colors (look for color specifications, hex codes in style guides, or dominant colors)
+   - If you find branding information, use the saveBranding tool to store it for future use
+4. **Check for Stored Branding**: Use the getBranding tool at the start to check if the user already has stored branding information
+5. Once you have sufficient information, create a detailed first draft of the business plan
+6. After providing the draft, iterate and refine based on user feedback
+7. When the user is satisfied, generate the final business plan as a DOCX file using the createBusinessPlanDocx tool
+   - The tool will automatically use stored branding if available
+   - If branding info is missing when generating the first draft, ask the user to confirm or provide it
 
-Customization options:
-- Logo: Users can provide a logo file path (e.g., "/logo.png") or use the default
-- Primary Color: Main heading color in hex format (e.g., "#1E40AF")
-- Secondary Color: Subheading color in hex format (e.g., "#3B82F6")
+**Branding Storage**: Once branding information (logo, colors) is saved, it will be automatically used for all future business plans. Only ask the user for confirmation if no stored branding exists.
 
 You can have multiple back-and-forth conversations to refine the plan. The final deliverable should always be a professionally formatted DOCX document.
 
@@ -72,9 +79,117 @@ Important: Answer in the language the customer uses.`,
         };
       },
     }),
+    getBranding: tool({
+      description:
+        "Get the user's stored branding information (logo and colors). Call this at the start of business plan creation to check if branding info is already saved.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        try {
+          const session = await getServerSession(authOptions);
+          if (!session?.user?.id) {
+            return {
+              success: false,
+              message: "No user session found",
+            };
+          }
+
+          await connectDB();
+          const user = await User.findById(session.user.id);
+
+          if (!user) {
+            return {
+              success: false,
+              message: "User not found",
+            };
+          }
+
+          return {
+            success: true,
+            hasBranding: !!(
+              user.logo ||
+              user.primaryColor ||
+              user.secondaryColor
+            ),
+            logo: user.logo || null,
+            primaryColor: user.primaryColor || null,
+            secondaryColor: user.secondaryColor || null,
+          };
+        } catch (error) {
+          console.error("Error retrieving branding:", error);
+          return {
+            success: false,
+            message: "Failed to retrieve branding information",
+          };
+        }
+      },
+    }),
+    saveBranding: tool({
+      description:
+        "Save the user's branding information (logo as base64 string and colors) for future use. This should be called when you extract branding from documents or when the user provides it.",
+      inputSchema: z.object({
+        logo: z
+          .string()
+          .optional()
+          .describe("Base64 encoded logo image (without data:image prefix)"),
+        primaryColor: z
+          .string()
+          .optional()
+          .describe("Primary brand color in hex format (e.g., '#1E40AF')"),
+        secondaryColor: z
+          .string()
+          .optional()
+          .describe("Secondary brand color in hex format (e.g., '#3B82F6')"),
+      }),
+      execute: async ({ logo, primaryColor, secondaryColor }) => {
+        try {
+          const session = await getServerSession(authOptions);
+          if (!session?.user?.id) {
+            return {
+              success: false,
+              message: "No user session found",
+            };
+          }
+
+          await connectDB();
+          const updateData: any = {};
+          if (logo) updateData.logo = logo;
+          if (primaryColor) updateData.primaryColor = primaryColor;
+          if (secondaryColor) updateData.secondaryColor = secondaryColor;
+
+          const user = await User.findByIdAndUpdate(
+            session.user.id,
+            { $set: updateData },
+            { new: true },
+          );
+
+          if (!user) {
+            return {
+              success: false,
+              message: "User not found",
+            };
+          }
+
+          return {
+            success: true,
+            message: "Branding information saved successfully",
+            saved: {
+              logo: !!logo,
+              primaryColor: !!primaryColor,
+              secondaryColor: !!secondaryColor,
+            },
+          };
+        } catch (error) {
+          console.error("Error saving branding:", error);
+          return {
+            success: false,
+            message: "Failed to save branding information",
+          };
+        }
+      },
+    }),
     createBusinessPlanDocx: tool({
       description:
-        "Create a professionally formatted DOCX file for a business plan with optional logo and color customization. Use this when the user is ready for the final document. The document will be provided as a downloadable file.",
+        "Create a professionally formatted DOCX file for a business plan. Automatically uses stored user branding (logo and colors) if available. Use this when the user is ready for the final document. The document will be provided as a downloadable file.",
       inputSchema: z.object({
         title: z
           .string()
@@ -95,19 +210,19 @@ Important: Answer in the language the customer uses.`,
           .string()
           .optional()
           .describe(
-            "Absolute path to logo image file. Example: '/path/to/logo.png'. If not specified, the default Aire logo will be used.",
+            "Optional override: Absolute path to logo image file. If not specified, will use stored user logo or default Aire logo.",
           ),
         primaryColor: z
           .string()
           .optional()
           .describe(
-            "Primary color for headings in hex format (e.g., '#1E40AF'). Default is blue.",
+            "Optional override: Primary color for headings in hex format (e.g., '#1E40AF'). If not specified, will use stored user color or default blue.",
           ),
         secondaryColor: z
           .string()
           .optional()
           .describe(
-            "Secondary color for subheadings in hex format (e.g., '#3B82F6'). Default is lighter blue.",
+            "Optional override: Secondary color for subheadings in hex format (e.g., '#3B82F6'). If not specified, will use stored user color or default lighter blue.",
           ),
       }),
       execute: async ({
@@ -118,16 +233,45 @@ Important: Answer in the language the customer uses.`,
         secondaryColor,
       }) => {
         try {
-          // Use the default logo if not specified
-          const finalLogoPath =
-            logoPath || path.join(process.cwd(), "public", "logo_aire.png");
+          // Get stored branding if available
+          const session = await getServerSession(authOptions);
+          let storedLogo = null;
+          let storedPrimaryColor = null;
+          let storedSecondaryColor = null;
+
+          if (session?.user?.id) {
+            await connectDB();
+            const user = await User.findById(session.user.id);
+            if (user) {
+              storedLogo = user.logo;
+              storedPrimaryColor = user.primaryColor;
+              storedSecondaryColor = user.secondaryColor;
+            }
+          }
+
+          // Use stored branding as fallback, then defaults
+          const finalPrimaryColor = primaryColor || storedPrimaryColor;
+          const finalSecondaryColor = secondaryColor || storedSecondaryColor;
+
+          // Handle logo: prefer provided path, then stored base64, then default path
+          let finalLogoPath = logoPath;
+          let finalLogoData = null;
+
+          if (!finalLogoPath && storedLogo) {
+            // Use stored base64 logo
+            finalLogoData = storedLogo;
+          } else if (!finalLogoPath) {
+            // Use default logo
+            finalLogoPath = path.join(process.cwd(), "public", "logo_aire.png");
+          }
 
           const buffer = await createBusinessPlanFromTemplate({
             title,
             sections,
             logoPath: finalLogoPath,
-            primaryColor,
-            secondaryColor,
+            logoData: finalLogoData || undefined,
+            primaryColor: finalPrimaryColor || undefined,
+            secondaryColor: finalSecondaryColor || undefined,
           });
           const base64 = buffer.toString("base64");
 

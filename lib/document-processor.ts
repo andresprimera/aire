@@ -67,6 +67,7 @@ export interface BusinessPlanTemplateOptions {
   title: string;
   sections: BusinessPlanSection[];
   logoPath?: string; // Path to logo image file
+  logoData?: string; // Base64 encoded logo data (alternative to logoPath)
   primaryColor?: string; // Primary color in hex format (e.g., "#1E40AF")
   secondaryColor?: string; // Secondary color in hex format
 }
@@ -158,16 +159,38 @@ export async function createBusinessPlanFromTemplate(
   options: BusinessPlanTemplateOptions,
 ): Promise<Buffer> {
   try {
-    const { title, sections, logoPath, primaryColor, secondaryColor } = options;
+    const {
+      title,
+      sections,
+      logoPath,
+      logoData,
+      primaryColor,
+      secondaryColor,
+    } = options;
 
     // For now, we'll use the existing createBusinessPlanDocx function
     // and enhance it with logo and colors
     const paragraphs: Paragraph[] = [];
 
-    // Add logo if provided
-    if (logoPath && fs.existsSync(logoPath)) {
+    // Add logo if provided (either as path or base64 data)
+    let imageBuffer: Buffer | null = null;
+    let imageType: "jpg" | "png" | "gif" | "bmp" = "png";
+
+    if (logoData) {
+      // Handle base64 encoded logo
       try {
-        const imageBuffer = fs.readFileSync(logoPath);
+        // Remove data URL prefix if present
+        const base64Data = logoData.replace(/^data:image\/\w+;base64,/, "");
+        imageBuffer = Buffer.from(base64Data, "base64");
+        // Default to PNG for base64 data
+        imageType = "png";
+      } catch (error) {
+        console.error("Error decoding base64 logo:", error);
+      }
+    } else if (logoPath && fs.existsSync(logoPath)) {
+      // Handle file path logo
+      try {
+        imageBuffer = fs.readFileSync(logoPath);
         // Determine image type from file extension
         const ext = path.extname(logoPath).toLowerCase();
         const imageTypeMap: Record<string, "jpg" | "png" | "gif" | "bmp"> = {
@@ -177,8 +200,15 @@ export async function createBusinessPlanFromTemplate(
           ".gif": "gif",
           ".bmp": "bmp",
         };
-        const imageType = imageTypeMap[ext] || "png";
+        imageType = imageTypeMap[ext] || "png";
+      } catch (error) {
+        console.error("Error reading logo file:", error);
+      }
+    }
 
+    // Add logo to document if we have image data
+    if (imageBuffer) {
+      try {
         paragraphs.push(
           new Paragraph({
             children: [
