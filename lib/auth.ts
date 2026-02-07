@@ -21,7 +21,9 @@ export const authOptions: NextAuthOptions = {
 
         await connectDB();
 
-        const user = await User.findOne({ email: credentials.email.toLowerCase() });
+        const user = await User.findOne({
+          email: credentials.email.toLowerCase(),
+        });
 
         if (!user) {
           throw new Error("Invalid credentials");
@@ -29,7 +31,7 @@ export const authOptions: NextAuthOptions = {
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
-          user.password
+          user.password,
         );
 
         if (!isPasswordValid) {
