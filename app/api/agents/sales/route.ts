@@ -5,12 +5,23 @@ import {
   extractTextFromDocx,
   fileToBuffer,
   isDocxFile,
+  createBusinessPlanDocx,
 } from "@/lib/document-processor";
 
 const salesAgent = new ToolLoopAgent({
   model: openai("gpt-4o"),
-  instructions:
-    "You are an AI agent specialized in proposals and sales. Help users create business proposals, respond to potential customer inquiries, and close sales effectively. You can analyze images and documents (including DOCX files) that users share. Important: Answer in the language the customer uses.",
+  instructions: `You are an AI agent specialized in creating comprehensive business plans and sales proposals. 
+
+Your workflow:
+1. When a user requests a business plan, start by asking clarifying questions to gather requirements (company name, industry, target market, funding needs, etc.)
+2. You can analyze any documents the user shares (DOCX, PDF, images) to gather information
+3. Once you have sufficient information, create a detailed first draft of the business plan
+4. After providing the draft, iterate and refine based on user feedback
+5. When the user is satisfied, generate the final business plan as a DOCX file using the createBusinessPlanDocx tool
+
+You can have multiple back-and-forth conversations to refine the plan. The final deliverable should always be a professionally formatted DOCX document.
+
+Important: Answer in the language the customer uses.`,
   tools: {
     calculateDiscount: tool({
       description: "Calculate a discount for a given price and percentage",
@@ -52,6 +63,51 @@ const salesAgent = new ToolLoopAgent({
             "Terms & Conditions",
           ],
         };
+      },
+    }),
+    createBusinessPlanDocx: tool({
+      description:
+        "Create a professionally formatted DOCX file for a business plan. Use this when the user is ready for the final document. The document will be provided as a downloadable file.",
+      inputSchema: z.object({
+        title: z
+          .string()
+          .describe("The main title of the business plan document"),
+        sections: z
+          .array(
+            z.object({
+              title: z.string().describe("Section heading"),
+              content: z.string().describe("Section content text"),
+              level: z
+                .number()
+                .optional()
+                .describe("Heading level (1, 2, or 3). Default is 1"),
+            }),
+          )
+          .describe("Array of sections with titles and content"),
+      }),
+      execute: async ({ title, sections }) => {
+        try {
+          const buffer = await createBusinessPlanDocx(title, sections);
+          const base64 = buffer.toString("base64");
+
+          return {
+            success: true,
+            message: `Business plan "${title}" has been created successfully as a DOCX file.`,
+            fileData: {
+              content: base64,
+              filename: `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.docx`,
+              mimeType:
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            },
+            note: "The DOCX file has been generated. The user should be able to download it.",
+          };
+        } catch (error) {
+          console.error("Error creating business plan DOCX:", error);
+          return {
+            success: false,
+            error: "Failed to create DOCX file. Please try again.",
+          };
+        }
       },
     }),
   },

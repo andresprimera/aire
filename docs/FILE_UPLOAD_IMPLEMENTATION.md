@@ -63,10 +63,11 @@ The `AssistantChatTransport` automatically handles file serialization when sendi
 
 #### 0. Document Processing Utility (`lib/document-processor.ts`)
 
-**Purpose:** Extract text from DOCX files for processing by the AI model.
+**Purpose:** Extract text from DOCX files and create DOCX documents.
 
 ```typescript
 import mammoth from "mammoth";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 
 /**
  * Extract text content from a DOCX file
@@ -82,6 +83,27 @@ export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Create a DOCX document from business plan content
+ */
+export async function createBusinessPlanDocx(
+  title: string,
+  sections: BusinessPlanSection[],
+): Promise<Buffer> {
+  // Creates a professionally formatted DOCX with headings and paragraphs
+  const doc = new Document({
+    sections: [
+      {
+        properties: {},
+        children: paragraphs, // Generated from title and sections
+      },
+    ],
+  });
+  
+  const buffer = await Packer.toBuffer(doc);
+  return buffer;
+}
+
+/**
  * Convert a File object to Buffer
  */
 export async function fileToBuffer(file: File): Promise<Buffer> {
@@ -94,28 +116,77 @@ export async function fileToBuffer(file: File): Promise<Buffer> {
  */
 export function isDocxFile(mimeType: string): boolean {
   return (
-    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    mimeType === "application/docx"
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   );
 }
 ```
 
 **Dependencies:**
 - `mammoth`: Library for extracting text from DOCX files
-- Install: `npm install mammoth`
+- `docx`: Library for creating DOCX files
+- Install: `npm install mammoth docx`
 
 #### 1. Agent Routes
 
 **Sales Agent** (`app/api/agents/sales/route.ts`):
+
+The Sales agent now includes:
+1. Enhanced instructions for business plan creation workflow
+2. A `createBusinessPlanDocx` tool for generating DOCX files
+
 ```typescript
 import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { extractTextFromDocx, fileToBuffer, isDocxFile } from "@/lib/document-processor";
+import { 
+  extractTextFromDocx, 
+  fileToBuffer, 
+  isDocxFile,
+  createBusinessPlanDocx 
+} from "@/lib/document-processor";
 
 const salesAgent = new ToolLoopAgent({
-  model: openai("gpt-4o"), // Vision-capable model
-  instructions: "... You can analyze images and documents (including DOCX files) that users share.",
-  tools: { /* ... */ },
+  model: openai("gpt-4o"),
+  instructions: `You are an AI agent specialized in creating comprehensive business plans.
+
+Your workflow:
+1. Ask clarifying questions to gather requirements
+2. Analyze any documents the user shares
+3. Create a detailed first draft
+4. Iterate and refine based on feedback
+5. Generate final DOCX file using createBusinessPlanDocx tool
+
+The final deliverable should always be a professionally formatted DOCX document.`,
+  tools: {
+    // ... existing tools ...
+    
+    createBusinessPlanDocx: tool({
+      description: "Create a professionally formatted DOCX file for a business plan",
+      inputSchema: z.object({
+        title: z.string().describe("Main title of the business plan"),
+        sections: z.array(
+          z.object({
+            title: z.string().describe("Section heading"),
+            content: z.string().describe("Section content"),
+            level: z.number().optional().describe("Heading level (1, 2, or 3)"),
+          }),
+        ),
+      }),
+      execute: async ({ title, sections }) => {
+        const buffer = await createBusinessPlanDocx(title, sections);
+        const base64 = buffer.toString("base64");
+        
+        return {
+          success: true,
+          message: `Business plan "${title}" created successfully.`,
+          fileData: {
+            content: base64,
+            filename: `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.docx`,
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          },
+        };
+      },
+    }),
+  },
 });
 
 async function processDocxInMessages(messages: any[]): Promise<any[]> {

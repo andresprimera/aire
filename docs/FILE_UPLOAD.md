@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AIRE assistant now supports file uploads, allowing users to attach images and documents to their messages. The AI can analyze and respond to the content of these files.
+The AIRE assistant now supports file uploads, allowing users to attach images and documents to their messages. The AI can analyze and respond to the content of these files. Additionally, the Sales agent can generate professional DOCX business plans as downloadable files.
 
 ## Supported File Types
 
@@ -22,6 +22,15 @@ The AIRE assistant now supports file uploads, allowing users to attach images an
   - Support documentation
   - Technical specifications
   - Word documents with formatted text
+  - Business plan references
+
+### Document Generation (Sales Agent)
+- **Format**: DOCX (Word Document)
+- **Use Cases**:
+  - Business plans
+  - Sales proposals
+  - Professional reports
+  - Formatted documents for download
 
 ## How to Use
 
@@ -57,7 +66,59 @@ When you upload a document, the AI can:
 - Compare with other documents
 - Generate responses based on document content
 
+### Business Plan Generation (Sales Agent)
+The Sales agent has a special workflow for creating business plans:
+- Have a conversational back-and-forth to gather requirements
+- Analyze any uploaded documents you provide
+- Ask clarifying questions about your business
+- Create a comprehensive first draft
+- Iterate and refine based on your feedback
+- Generate a professional DOCX file for download when ready
+
 ## Examples
+
+### Business Plan Creation Workflow
+```
+User: "I need help creating a business plan for my startup"
+
+AI: "I'd be happy to help you create a comprehensive business plan! 
+    Let me gather some information first:
+    
+    1. What is your company name and what industry are you in?
+    2. What products or services will you offer?
+    3. Who is your target market?
+    4. Are you seeking funding? If so, how much?
+    5. Do you have any existing documents (market research, financial 
+       projections, etc.) you'd like me to review?"
+
+User: [Provides answers and uploads market research.docx]
+
+AI: "Thank you! I've reviewed your market research document. Based on 
+    your information, I'll create a comprehensive business plan with:
+    - Executive Summary
+    - Company Description  
+    - Market Analysis
+    - Organization & Management
+    - Service/Product Line
+    - Marketing & Sales Strategy
+    - Financial Projections
+    - Funding Requirements
+    
+    [Provides detailed draft content]
+    
+    Would you like me to revise any sections?"
+
+User: "Yes, can you expand the marketing strategy section?"
+
+AI: [Provides expanded marketing strategy]
+    "Is this better? Once you're satisfied with all sections, 
+    I can generate the final business plan as a downloadable DOCX file."
+
+User: "Perfect! Please create the DOCX file"
+
+AI: [Generates DOCX file] "Your business plan has been created! 
+    The document is ready for download."
+```
 
 ### Sales Agent with Images
 ```
