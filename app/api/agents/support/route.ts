@@ -1,11 +1,16 @@
 import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
+import {
+  extractTextFromDocx,
+  fileToBuffer,
+  isDocxFile,
+} from "@/lib/document-processor";
 
 const supportAgent = new ToolLoopAgent({
   model: openai("gpt-4o"),
   instructions:
-    "You are an AI agent for post-sales support. Help customers with inquiries about purchased products, problem resolution, order tracking, and any assistance needed after a purchase. You can analyze images and documents that users share. Important: Answer in the language the customer uses.",
+    "You are an AI agent for post-sales support. Help customers with inquiries about purchased products, problem resolution, order tracking, and any assistance needed after a purchase. You can analyze images and documents (including DOCX files) that users share. Important: Answer in the language the customer uses.",
   tools: {
     lookupOrder: tool({
       description: "Look up an order by order ID",
@@ -62,11 +67,58 @@ const supportAgent = new ToolLoopAgent({
   },
 });
 
+/**
+ * Process DOCX files in messages by extracting text content
+ */
+async function processDocxInMessages(messages: any[]): Promise<any[]> {
+  return Promise.all(
+    messages.map(async (msg) => {
+      if (!msg.parts) return msg;
+
+      const processedParts = await Promise.all(
+        msg.parts.map(async (part: any) => {
+          // Check if this is a DOCX file
+          if (
+            part.type === "file" &&
+            part.mimeType &&
+            isDocxFile(part.mimeType)
+          ) {
+            try {
+              // Extract text from DOCX
+              const buffer = await fileToBuffer(part.file);
+              const text = await extractTextFromDocx(buffer);
+
+              // Replace file part with text part containing extracted content
+              return {
+                type: "text",
+                text: `[DOCX Document: ${part.name || "document.docx"}]\n\n${text}`,
+              };
+            } catch (error) {
+              console.error("Error processing DOCX file:", error);
+              // Return error message as text
+              return {
+                type: "text",
+                text: `[Error: Could not process DOCX file "${part.name || "document.docx"}"]`,
+              };
+            }
+          }
+          return part;
+        }),
+      );
+
+      return { ...msg, parts: processedParts };
+    }),
+  );
+}
+
 export async function POST(request: Request) {
   const { messages } = await request.json();
 
+  // Process DOCX files before sending to agent
+  const processedMessages = await processDocxInMessages(messages);
+
   return createAgentUIStreamResponse({
     agent: supportAgent,
-    uiMessages: messages,
+    uiMessages: processedMessages,
   });
 }

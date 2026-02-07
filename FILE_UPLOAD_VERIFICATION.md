@@ -67,7 +67,7 @@ File upload functionality has been **successfully implemented** and is ready to 
 
 3. **✅ File Types Supported**:
    - **Images**: PNG, JPEG, GIF, WebP (full vision analysis)
-   - **Text-based documents**: PDF, TXT (text extraction)
+   - **Text-based documents**: PDF, TXT, DOCX (text extraction)
    - **Other files**: Basic file handling
 
 ## How to Test
@@ -150,7 +150,7 @@ File upload functionality has been **successfully implemented** and is ready to 
 2. **Model Costs**: GPT-4o is more expensive than nano models
 3. **File Size**: No explicit size limits implemented (defaults to browser/API limits)
 4. **File Types**: Best support for images; text extraction for documents
-5. **Advanced Documents**: Complex PDFs/DOCX may need additional processing
+5. **Advanced Documents**: Complex PDFs may need additional processing (DOCX support added via Mammoth library)
 
 ## Next Steps (Optional Enhancements)
 

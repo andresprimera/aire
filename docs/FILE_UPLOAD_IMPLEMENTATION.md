@@ -61,31 +61,111 @@ The `AssistantChatTransport` automatically handles file serialization when sendi
 
 ### Backend API
 
+#### 0. Document Processing Utility (`lib/document-processor.ts`)
+
+**Purpose:** Extract text from DOCX files for processing by the AI model.
+
+```typescript
+import mammoth from "mammoth";
+
+/**
+ * Extract text content from a DOCX file
+ */
+export async function extractTextFromDocx(buffer: Buffer): Promise<string> {
+  try {
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value;
+  } catch (error) {
+    console.error("Error extracting text from DOCX:", error);
+    throw new Error("Failed to extract text from DOCX file");
+  }
+}
+
+/**
+ * Convert a File object to Buffer
+ */
+export async function fileToBuffer(file: File): Promise<Buffer> {
+  const arrayBuffer = await file.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Check if a file is a DOCX file based on MIME type
+ */
+export function isDocxFile(mimeType: string): boolean {
+  return (
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType === "application/docx"
+  );
+}
+```
+
+**Dependencies:**
+- `mammoth`: Library for extracting text from DOCX files
+- Install: `npm install mammoth`
+
 #### 1. Agent Routes
 
 **Sales Agent** (`app/api/agents/sales/route.ts`):
 ```typescript
 import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { extractTextFromDocx, fileToBuffer, isDocxFile } from "@/lib/document-processor";
 
 const salesAgent = new ToolLoopAgent({
   model: openai("gpt-4o"), // Vision-capable model
-  instructions: "... You can analyze images and documents that users share.",
+  instructions: "... You can analyze images and documents (including DOCX files) that users share.",
   tools: { /* ... */ },
 });
+
+async function processDocxInMessages(messages: any[]): Promise<any[]> {
+  return Promise.all(
+    messages.map(async (msg) => {
+      if (!msg.parts) return msg;
+      
+      const processedParts = await Promise.all(
+        msg.parts.map(async (part: any) => {
+          if (part.type === "file" && part.mimeType && isDocxFile(part.mimeType)) {
+            try {
+              const buffer = await fileToBuffer(part.file);
+              const text = await extractTextFromDocx(buffer);
+              return {
+                type: "text",
+                text: `[DOCX Document: ${part.name || "document.docx"}]\n\n${text}`,
+              };
+            } catch (error) {
+              console.error("Error processing DOCX file:", error);
+              return {
+                type: "text",
+                text: `[Error: Could not process DOCX file "${part.name || "document.docx"}"]`,
+              };
+            }
+          }
+          return part;
+        }),
+      );
+      
+      return { ...msg, parts: processedParts };
+    }),
+  );
+}
 
 export async function POST(request: Request) {
   const { messages } = await request.json();
   
+  // Process DOCX files before sending to agent
+  const processedMessages = await processDocxInMessages(messages);
+  
   return createAgentUIStreamResponse({
     agent: salesAgent,
-    uiMessages: messages, // Includes file attachments
+    uiMessages: processedMessages, // Includes file attachments
   });
 }
 ```
 
 **Support Agent** (`app/api/agents/support/route.ts`):
 - Same structure as Sales Agent
+- Includes DOCX processing
 - Different instructions and tools
 - Both use GPT-4o for vision support
 

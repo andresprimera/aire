@@ -67,7 +67,7 @@ The application supports file uploads for images and documents. Users can:
 - Upload files by clicking the "+" button in the chat
 - Drag and drop files onto the composer
 - Attach multiple files to a single message
-- The AI (powered by GPT-4o) can analyze images and extract text from documents
+- The AI (powered by GPT-4o) can analyze images and extract text from documents (PDF, TXT, DOCX)
 
 For more details, see [File Upload Documentation](docs/FILE_UPLOAD.md).
 

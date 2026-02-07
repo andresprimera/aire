@@ -15,12 +15,13 @@ The AIRE assistant now supports file uploads, allowing users to attach images an
   - Invoice/receipt images
   
 ### Documents (Text-based)
-- **Formats**: PDF, TXT, and other text-based files
+- **Formats**: PDF, TXT, DOCX
 - **Use Cases**:
   - Contract review
   - Proposal documents
   - Support documentation
   - Technical specifications
+  - Word documents with formatted text
 
 ## How to Use
 
@@ -78,7 +79,7 @@ AI: "I can see the error '[error message from image]'. This typically
 
 ### Document Analysis
 ```
-User: [Uploads contract PDF]
+User: [Uploads contract PDF or DOCX]
       "Can you review this contract and summarize the key terms?"
 
 AI: "I've analyzed the contract. Here are the key terms:
@@ -87,12 +88,24 @@ AI: "I've analyzed the contract. Here are the key terms:
     3. Key obligations: [obligations]..."
 ```
 
+### DOCX Document Processing
+```
+User: [Uploads proposal.docx]
+      "Please review this proposal and suggest improvements"
+
+AI: "I've reviewed your proposal document. Here are my suggestions:
+    1. The executive summary is strong but could benefit from...
+    2. Consider adding more specific metrics in the ROI section...
+    3. The timeline seems realistic..."
+```
+
 ## Technical Details
 
 ### Backend Processing
 - Files are automatically converted to the appropriate format for the AI model
 - Images are processed by GPT-4o with vision capabilities
-- Text extraction is handled automatically for documents
+- Text extraction is handled automatically for documents (PDF, TXT)
+- DOCX files are processed using Mammoth library for accurate text extraction
 - All file processing happens in real-time
 
 ### Privacy & Security
@@ -111,7 +124,8 @@ AI: "I've analyzed the contract. Here are the key terms:
 
 ### AI Can't Read the File
 - For images: Ensure the image is clear and not corrupted
-- For documents: Try converting to PDF or plain text
+- For documents: Try converting to PDF, DOCX, or plain text
+- For DOCX: Ensure the file is not corrupted or password-protected
 - Check if the file contains actual content (not just blank pages)
 
 ### Slow Processing
@@ -148,7 +162,7 @@ The file upload feature is powered by:
 Planned improvements include:
 - Audio file support
 - Video file analysis
-- Enhanced document parsing (DOCX, XLSX)
+- Enhanced spreadsheet parsing (XLSX, CSV)
 - Batch file processing
 - File format conversion tools
 - OCR accuracy improvements
