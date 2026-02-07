@@ -47,8 +47,15 @@ export async function seedSuperUsers() {
         }
       } else {
         // Create new admin user with a default password
-        const defaultPassword =
-          process.env.SUPER_USER_DEFAULT_PASSWORD || "ChangeMe123!";
+        const defaultPassword = process.env.SUPER_USER_DEFAULT_PASSWORD;
+
+        if (!defaultPassword) {
+          console.error(
+            `✗ Cannot create admin user ${email}: SUPER_USER_DEFAULT_PASSWORD not set`,
+          );
+          continue;
+        }
+
         const hashedPassword = await bcrypt.hash(defaultPassword, 12);
 
         await User.create({
@@ -59,7 +66,11 @@ export async function seedSuperUsers() {
         });
 
         console.log(`✓ Created new admin user ${email}`);
-        console.log(`  ⚠️  Default password: ${defaultPassword}`);
+        if (process.env.NODE_ENV === "development") {
+          console.log(
+            `  ⚠️  Default password set (see SUPER_USER_DEFAULT_PASSWORD)`,
+          );
+        }
         console.log("  ⚠️  Please change the password immediately!");
       }
     }

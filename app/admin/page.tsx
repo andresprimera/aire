@@ -61,9 +61,11 @@ export default function AdminPage() {
             </p>
             <div className="mt-6 space-y-2">
               <div className="rounded-md border p-3">
-                <p className="font-medium text-sm">User: {session.user.name}</p>
+                <p className="font-medium text-sm">
+                  User: {session?.user?.name || "N/A"}
+                </p>
                 <p className="text-muted-foreground text-sm">
-                  Email: {session.user.email}
+                  Email: {session?.user?.email || "N/A"}
                 </p>
                 <p className="text-muted-foreground text-sm">
                   Role: Administrator
