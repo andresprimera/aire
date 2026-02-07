@@ -28,6 +28,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect non-admin users away from admin pages
+  // Note: token check is required for TypeScript null safety despite isAuthenticated
   if (isAdminPage && isAuthenticated && token && !token.isAdmin) {
     return NextResponse.redirect(new URL("/", request.url));
   }
