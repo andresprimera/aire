@@ -7,6 +7,10 @@ export interface IUser extends Document {
   isAdmin: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // Branding information for business plans
+  logo?: string; // Base64 encoded image
+  primaryColor?: string; // Hex color for headings
+  secondaryColor?: string; // Hex color for subheadings
 }
 
 const UserSchema = new Schema<IUser>(
@@ -31,6 +35,18 @@ const UserSchema = new Schema<IUser>(
     isAdmin: {
       type: Boolean,
       default: false,
+    },
+    logo: {
+      type: String,
+      required: false,
+    },
+    primaryColor: {
+      type: String,
+      required: false,
+    },
+    secondaryColor: {
+      type: String,
+      required: false,
     },
   },
   {
