@@ -94,7 +94,7 @@ export const Assistant = () => {
               </div>
             </header>
             <div className="flex-1 overflow-hidden">
-              <Thread />
+              <Thread selectedAgentId={selectedAgent.id} />
             </div>
           </SidebarInset>
         </div>
