@@ -81,3 +81,24 @@ export async function seedSuperUsers() {
     throw error;
   }
 }
+
+/**
+ * Seeds super users ONLY if no admin users exist
+ * This is safe to run on server startup
+ */
+export async function seedIfNoAdmins() {
+  try {
+    await connectDB();
+    const adminCount = await User.countDocuments({ isAdmin: true });
+
+    if (adminCount > 0) {
+      console.log("Admins already exist, skipping auto-seeding.");
+      return;
+    }
+
+    console.log("No admins found, starting auto-seeding...");
+    await seedSuperUsers();
+  } catch (error) {
+    console.error("Error checking/seeding admins:", error);
+  }
+}

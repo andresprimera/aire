@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "kill": "lsof -ti :3000 | xargs kill -9"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.33",
