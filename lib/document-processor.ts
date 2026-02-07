@@ -170,14 +170,14 @@ export async function createBusinessPlanFromTemplate(
         const imageBuffer = fs.readFileSync(logoPath);
         // Determine image type from file extension
         const ext = path.extname(logoPath).toLowerCase();
-        let imageType: "jpg" | "png" | "gif" | "bmp" = "png";
-        if (ext === ".jpg" || ext === ".jpeg") {
-          imageType = "jpg";
-        } else if (ext === ".gif") {
-          imageType = "gif";
-        } else if (ext === ".bmp") {
-          imageType = "bmp";
-        }
+        const imageTypeMap: Record<string, "jpg" | "png" | "gif" | "bmp"> = {
+          ".jpg": "jpg",
+          ".jpeg": "jpg",
+          ".png": "png",
+          ".gif": "gif",
+          ".bmp": "bmp",
+        };
+        const imageType = imageTypeMap[ext] || "png";
 
         paragraphs.push(
           new Paragraph({

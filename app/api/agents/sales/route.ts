@@ -1,6 +1,7 @@
 import { ToolLoopAgent, tool, createAgentUIStreamResponse } from "ai";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
+import * as path from "node:path";
 import {
   extractTextFromDocx,
   fileToBuffer,
@@ -94,7 +95,7 @@ Important: Answer in the language the customer uses.`,
           .string()
           .optional()
           .describe(
-            "Path to logo image file (e.g., 'public/logo_aire.png'). Use the default Aire logo if not specified.",
+            "Absolute path to logo image file. Example: '/path/to/logo.png'. If not specified, the default Aire logo will be used.",
           ),
         primaryColor: z
           .string()
@@ -119,7 +120,7 @@ Important: Answer in the language the customer uses.`,
         try {
           // Use the default logo if not specified
           const finalLogoPath =
-            logoPath || "/home/runner/work/aire/aire/public/logo_aire.png";
+            logoPath || path.join(process.cwd(), "public", "logo_aire.png");
 
           const buffer = await createBusinessPlanFromTemplate({
             title,
