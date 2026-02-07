@@ -28,6 +28,7 @@ import { useSession } from "next-auth/react";
 const agentTypes = [
   { id: "sales", label: "Proposals & Sales" },
   { id: "support", label: "Post-Sales Support" },
+  { id: "business", label: "Business Plans" },
 ];
 
 export const Assistant = () => {

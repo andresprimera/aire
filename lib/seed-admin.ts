@@ -102,3 +102,47 @@ export async function seedIfNoAdmins() {
     console.error("Error checking/seeding admins:", error);
   }
 }
+
+/**
+ * Seeds a regular test user for development purposes
+ * Only runs in development mode
+ */
+export async function seedTestUser() {
+  if (process.env.NODE_ENV !== "development") {
+    return;
+  }
+
+  const email = process.env.TEST_USER_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD;
+
+  if (!email || !password) {
+    console.log(
+      "TEST_USER_EMAIL or TEST_USER_PASSWORD not set. Skipping test user seeding.",
+    );
+    return;
+  }
+
+  try {
+    await connectDB();
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      console.log(`✓ Test user ${email} already exists`);
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    await User.create({
+      email,
+      name: "Test User",
+      password: hashedPassword,
+      isAdmin: false,
+    });
+
+    console.log(`✓ Created test user ${email}`);
+    console.log(`  Password: ${password}`);
+  } catch (error) {
+    console.error("Error seeding test user:", error);
+  }
+}
