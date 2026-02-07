@@ -129,6 +129,8 @@ export async function createBusinessPlanDocx(
     return buffer;
   } catch (error) {
     console.error("Error creating DOCX:", error);
-    throw new Error("Failed to create DOCX file");
+    throw new Error(
+      `Failed to create DOCX file "${title}". Details: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
   }
 }
