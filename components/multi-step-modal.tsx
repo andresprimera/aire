@@ -12,8 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { StepOne } from "@/components/steps/step-one";
 import { StepTwo } from "@/components/steps/step-two";
-import { StepThree } from "@/components/steps/step-three";
 import { Progress } from "@/components/ui/progress";
+import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,6 @@ interface FormData {
   email: string;
   files: File[];
   contextText: string;
-  agentPrompts: Record<string, string>;
 }
 
 export function MultiStepModal({
@@ -40,10 +39,15 @@ export function MultiStepModal({
     email: "",
     files: [],
     contextText: "",
-    agentPrompts: {},
   });
-  const [isStepThreeReady, setIsStepThreeReady] = useState(false);
-  const totalSteps = 3;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{
+    success: boolean;
+    email?: string;
+    password?: string;
+    error?: string;
+  } | null>(null);
+  const totalSteps = 2;
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -57,21 +61,68 @@ export function MultiStepModal({
     }
   };
 
-  const handleFinish = () => {
-    // Reset step before closing or handle final submission logic here
-    console.log("Form submitted:", formData);
-    setCurrentStep(1);
-    setFormData({ email: "", files: [], contextText: "", agentPrompts: {} });
-    setIsStepThreeReady(false);
-    onOpenChange(false);
+  const handleFinish = async () => {
+    try {
+      setIsSubmitting(true);
+
+      // Prepare form data with files and context
+      const submitFormData = new FormData();
+      submitFormData.append("email", formData.email);
+      if (formData.contextText) {
+        submitFormData.append("contextText", formData.contextText);
+      }
+      formData.files.forEach((file, index) => {
+        submitFormData.append(`file-${index}`, file);
+      });
+
+      // Call API to create user (internally generates prompts and saves them)
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        body: submitFormData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create user");
+      }
+
+      // Show success result
+      setSubmitResult({
+        success: true,
+        email: data.credentials.email,
+        password: data.credentials.password,
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      setSubmitResult({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create user",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOpenChange = (newOpen: boolean) => {
+    // Prevent closing during submission
+    if (!newOpen && isSubmitting) {
+      return;
+    }
+
     if (!newOpen) {
       setCurrentStep(1);
-      setIsStepThreeReady(false);
+      setSubmitResult(null);
+      setFormData({ email: "", files: [], contextText: "" });
     }
     onOpenChange(newOpen);
+  };
+
+  const handleCloseSuccess = () => {
+    setCurrentStep(1);
+    setSubmitResult(null);
+    setFormData({ email: "", files: [], contextText: "" });
+    onOpenChange(false);
   };
 
   const updateFormData = <K extends keyof FormData>(
@@ -82,6 +133,48 @@ export function MultiStepModal({
   };
 
   const renderStep = () => {
+    // Show success/error result after submission
+    if (submitResult) {
+      if (submitResult.success) {
+        return (
+          <div className="space-y-4 py-8">
+            <div className="flex flex-col items-center gap-4 rounded-lg border border-green-500/50 bg-green-500/10 p-6">
+              <h3 className="font-semibold text-green-600 text-lg">
+                User Created Successfully!
+              </h3>
+              <div className="w-full space-y-2 text-sm">
+                <p className="text-muted-foreground">
+                  The user has been created with the following credentials:
+                </p>
+                <div className="rounded-md border bg-card p-4">
+                  <p className="font-medium">
+                    <strong>Email:</strong> {submitResult.email}
+                  </p>
+                  <p className="font-medium">
+                    <strong>Password:</strong> {submitResult.password}
+                  </p>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Please save these credentials. The password will not be shown
+                  again.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-4 py-8">
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-destructive/50 bg-destructive/10 p-6">
+            <h3 className="font-semibold text-destructive text-lg">
+              Error Creating User
+            </h3>
+            <p className="text-center text-sm">{submitResult.error}</p>
+          </div>
+        </div>
+      );
+    }
+
     switch (currentStep) {
       case 1:
         return (
@@ -99,14 +192,6 @@ export function MultiStepModal({
             onContextTextChange={(value: string) =>
               updateFormData("contextText", value)
             }
-          />
-        );
-      case 3:
-        return (
-          <StepThree
-            prompts={formData.agentPrompts}
-            onChange={(value) => updateFormData("agentPrompts", value)}
-            onReady={setIsStepThreeReady}
           />
         );
       default:
@@ -148,20 +233,35 @@ export function MultiStepModal({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 1}
-          >
-            Back
-          </Button>
-
-          {currentStep < totalSteps ? (
-            <Button onClick={handleNext}>Next</Button>
+          {submitResult ? (
+            <Button onClick={handleCloseSuccess}>Close</Button>
           ) : (
-            <Button onClick={handleFinish} disabled={!isStepThreeReady}>
-              Finish
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStep === 1 || isSubmitting}
+              >
+                Back
+              </Button>
+
+              {currentStep < totalSteps ? (
+                <Button onClick={handleNext} disabled={isSubmitting}>
+                  Next
+                </Button>
+              ) : (
+                <Button onClick={handleFinish} disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Finish"
+                  )}
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>
