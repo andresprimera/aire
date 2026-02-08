@@ -29,6 +29,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, Settings, Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -103,15 +104,51 @@ export const Assistant = () => {
                     </SheetTrigger>
                     <SheetContent side="right">
                       <SheetHeader>
-                        <SheetTitle>Menu</SheetTitle>
+                        <SheetTitle>User Options</SheetTitle>
                         <SheetDescription>
-                          Additional options and settings will appear here.
+                          Manage your consumption, agents, and account settings.
                         </SheetDescription>
                       </SheetHeader>
                       <div className="py-4">
-                        <p className="text-muted-foreground text-sm">
-                          Placeholder content for future features.
-                        </p>
+                        <Tabs defaultValue="consumption" className="w-full">
+                          <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="consumption">
+                              Consumption
+                            </TabsTrigger>
+                            <TabsTrigger value="agents">Agents</TabsTrigger>
+                            <TabsTrigger value="account">Account</TabsTrigger>
+                          </TabsList>
+                          <TabsContent
+                            value="consumption"
+                            className="space-y-4"
+                          >
+                            <div className="text-sm">
+                              <h3 className="mb-2 font-semibold">
+                                Consumption
+                              </h3>
+                              <p className="text-muted-foreground">
+                                View your usage statistics and consumption
+                                details.
+                              </p>
+                            </div>
+                          </TabsContent>
+                          <TabsContent value="agents" className="space-y-4">
+                            <div className="text-sm">
+                              <h3 className="mb-2 font-semibold">Agents</h3>
+                              <p className="text-muted-foreground">
+                                Configure and manage your AI agents.
+                              </p>
+                            </div>
+                          </TabsContent>
+                          <TabsContent value="account" className="space-y-4">
+                            <div className="text-sm">
+                              <h3 className="mb-2 font-semibold">Account</h3>
+                              <p className="text-muted-foreground">
+                                Update your account settings and preferences.
+                              </p>
+                            </div>
+                          </TabsContent>
+                        </Tabs>
                       </div>
                     </SheetContent>
                   </Sheet>
