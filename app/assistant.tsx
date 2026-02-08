@@ -70,6 +70,7 @@ export const Assistant = () => {
   const [customPrompt, setCustomPrompt] = useState<string | null>(null);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
 
   // Fetch custom prompt when agent changes
   useEffect(() => {
@@ -77,6 +78,7 @@ export const Assistant = () => {
       if (!selectedAgent) return;
 
       setIsLoadingPrompt(true);
+      setPromptError(null);
       try {
         const response = await fetch(
           `/api/user-agent-params?agentId=${selectedAgent.id}`,
@@ -84,9 +86,12 @@ export const Assistant = () => {
         if (response.ok) {
           const data = await response.json();
           setCustomPrompt(data.promptComplement || null);
+        } else {
+          setPromptError("Failed to load custom prompt");
         }
       } catch (error) {
         console.error("Error fetching custom prompt:", error);
+        setPromptError("Failed to load custom prompt");
       } finally {
         setIsLoadingPrompt(false);
       }
@@ -183,9 +188,9 @@ export const Assistant = () => {
                                 </h3>
                                 <div className="space-y-3">
                                   <div className="space-y-2">
-                                    <label className="text-muted-foreground text-xs">
+                                    <div className="text-muted-foreground text-xs">
                                       Select Model
-                                    </label>
+                                    </div>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
                                         <Button
@@ -215,12 +220,16 @@ export const Assistant = () => {
                                   </div>
 
                                   <div className="space-y-2">
-                                    <label className="text-muted-foreground text-xs">
+                                    <div className="text-muted-foreground text-xs">
                                       Custom Prompt
-                                    </label>
+                                    </div>
                                     {isLoadingPrompt ? (
                                       <div className="rounded-md border bg-muted p-3 text-muted-foreground text-sm">
                                         Loading...
+                                      </div>
+                                    ) : promptError ? (
+                                      <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-destructive text-sm">
+                                        {promptError}
                                       </div>
                                     ) : customPrompt ? (
                                       <div className="rounded-md border bg-muted p-3 text-sm">
