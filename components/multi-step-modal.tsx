@@ -26,6 +26,7 @@ interface MultiStepModalProps {
 interface FormData {
   email: string;
   files: File[];
+  contextText: string;
   agentPrompts: Record<string, string>;
 }
 
@@ -38,6 +39,7 @@ export function MultiStepModal({
   const [formData, setFormData] = useState<FormData>({
     email: "",
     files: [],
+    contextText: "",
     agentPrompts: {},
   });
   const [isStepThreeReady, setIsStepThreeReady] = useState(false);
@@ -59,7 +61,7 @@ export function MultiStepModal({
     // Reset step before closing or handle final submission logic here
     console.log("Form submitted:", formData);
     setCurrentStep(1);
-    setFormData({ email: "", files: [], agentPrompts: {} });
+    setFormData({ email: "", files: [], contextText: "", agentPrompts: {} });
     setIsStepThreeReady(false);
     onOpenChange(false);
   };
@@ -92,7 +94,11 @@ export function MultiStepModal({
         return (
           <StepTwo
             files={formData.files}
-            onChange={(value) => updateFormData("files", value)}
+            onFilesChange={(value: File[]) => updateFormData("files", value)}
+            contextText={formData.contextText}
+            onContextTextChange={(value: string) =>
+              updateFormData("contextText", value)
+            }
           />
         );
       case 3:
