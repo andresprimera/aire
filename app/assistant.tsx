@@ -42,7 +42,15 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, Settings, Menu, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Settings,
+  Menu,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -406,7 +414,7 @@ export const Assistant = () => {
                                             >
                                               {isDeletingPrompt ? (
                                                 <>
-                                                  <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent border-solid" />
+                                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                   Deleting...
                                                 </>
                                               ) : (
@@ -438,11 +446,15 @@ export const Assistant = () => {
                                           >
                                             {isSavingPrompt ? (
                                               <>
-                                                <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent border-solid" />
-                                                Saving...
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                {customPrompt
+                                                  ? "Updating..."
+                                                  : "Creating..."}
                                               </>
+                                            ) : customPrompt ? (
+                                              "Update"
                                             ) : (
-                                              "Save"
+                                              "Create"
                                             )}
                                           </Button>
                                         </DialogFooter>
