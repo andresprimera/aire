@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/user";
 import UserAgentParams from "@/lib/models/user-agent-params";
 
 /**
- * Generate a random password
+ * Generate a cryptographically secure random password
  */
 function generatePassword(): string {
   const length = 12;
   const charset =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  const randomBytes = crypto.randomBytes(length);
   let password = "";
   for (let i = 0; i < length; i++) {
-    password += charset.charAt(Math.floor(Math.random() * charset.length));
+    password += charset.charAt(randomBytes[i] % charset.length);
   }
   return password;
 }
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, agentPrompts } = body;
+    const { email, agentPrompts, name } = body;
 
     // Validate input
     if (!email || typeof email !== "string") {
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(generatedPassword, 12);
 
     const user = await User.create({
-      name: email.split("@")[0], // Use email prefix as name
+      name: name || email.split("@")[0], // Use provided name or email prefix as fallback
       email: email.toLowerCase(),
       password: hashedPassword,
       isAdmin: false,

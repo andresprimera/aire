@@ -105,6 +105,11 @@ export function MultiStepModal({
   };
 
   const handleOpenChange = (newOpen: boolean) => {
+    // Prevent closing during submission
+    if (!newOpen && isSubmitting) {
+      return;
+    }
+
     if (!newOpen) {
       setCurrentStep(1);
       setIsStepThreeReady(false);

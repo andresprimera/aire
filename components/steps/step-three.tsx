@@ -84,7 +84,10 @@ export function StepThree({
     };
 
     generatePrompts();
-  }, [files, contextText, onChange, onReady]);
+    // We intentionally omit onChange and onReady from dependencies to prevent
+    // re-running when the parent re-renders. These callbacks are stable in the parent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, contextText]);
 
   const handleRefine = (agentName: string) => {
     const text = refinementTexts[agentName];
