@@ -45,7 +45,8 @@ export async function fileToBuffer(file: File): Promise<Buffer> {
 export function isDocxFile(mimeType: string): boolean {
   return (
     mimeType ===
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType === "application/msword"
   );
 }
 

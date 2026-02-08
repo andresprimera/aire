@@ -33,6 +33,10 @@ import {
   SquareIcon,
 } from "lucide-react";
 import type { FC } from "react";
+import {
+  ComposerFileSizeCheck,
+  useIsFileSizeExceeded,
+} from "@/components/assistant-ui/composer-file-size-check";
 
 interface ThreadProps {
   selectedAgentId?: string;
@@ -168,6 +172,9 @@ const Composer: FC = () => {
           autoFocus
           aria-label="Message input"
         />
+        <div className="px-4 pb-2">
+          <ComposerFileSizeCheck />
+        </div>
         <ComposerAction />
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
@@ -180,19 +187,7 @@ const ComposerAction: FC = () => {
       <ComposerAddAttachment />
 
       <AssistantIf condition={({ thread }) => !thread.isRunning}>
-        <ComposerPrimitive.Send asChild>
-          <TooltipIconButton
-            tooltip="Send message"
-            side="bottom"
-            type="submit"
-            variant="default"
-            size="icon"
-            className="aui-composer-send size-8 rounded-full"
-            aria-label="Send message"
-          >
-            <ArrowUpIcon className="aui-composer-send-icon size-4" />
-          </TooltipIconButton>
-        </ComposerPrimitive.Send>
+        <ComposerSendButton />
       </AssistantIf>
 
       <AssistantIf condition={({ thread }) => thread.isRunning}>
@@ -211,6 +206,28 @@ const ComposerAction: FC = () => {
     </div>
   );
 };
+
+const ComposerSendButton: FC = () => {
+  const isExceeded = useIsFileSizeExceeded();
+
+  return (
+    <ComposerPrimitive.Send asChild disabled={isExceeded}>
+      <TooltipIconButton
+        tooltip={isExceeded ? "File size limit exceeded" : "Send message"}
+        side="bottom"
+        type="submit"
+        variant="default"
+        size="icon"
+        className="aui-composer-send size-8 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label="Send message"
+      >
+        <ArrowUpIcon className="aui-composer-send-icon size-4" />
+      </TooltipIconButton>
+    </ComposerPrimitive.Send>
+  );
+};
+
+
 
 const MessageError: FC = () => {
   return (
