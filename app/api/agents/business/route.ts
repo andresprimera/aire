@@ -54,7 +54,8 @@ Your first priority is always to identify WHICH client you are working for. You 
 const businessTools = {
   // --- Client Management Tools ---
   searchClients: tool({
-    description: "Search for existing clients by name (fuzzy match). Use this FIRST when you identify a company name.",
+    description:
+      "Search for existing clients by name (fuzzy match). Use this FIRST when you identify a company name.",
     inputSchema: z.object({
       query: z.string().describe("Company name to search for"),
     }),
@@ -68,16 +69,19 @@ const businessTools = {
         const regex = new RegExp(query, "i");
         const clients = await Client.find({
           userId: session.user.id,
-          name: { $regex: regex }
+          name: { $regex: regex },
         })
-        .select("name industry website updatedAt")
-        .limit(5);
+          .select("name industry website updatedAt")
+          .limit(5);
 
         return {
           success: true,
           matches: clients,
           count: clients.length,
-          message: clients.length > 0 ? "Found existing clients." : "No clients found."
+          message:
+            clients.length > 0
+              ? "Found existing clients."
+              : "No clients found.",
         };
       } catch (error) {
         return { success: false, error: "Search failed" };
@@ -86,7 +90,8 @@ const businessTools = {
   }),
 
   createClient: tool({
-    description: "Create a new client profile. Only do this if `searchClients` returns no matches.",
+    description:
+      "Create a new client profile. Only do this if `searchClients` returns no matches.",
     inputSchema: z.object({
       name: z.string().describe("Company Name"),
       industry: z.string().optional(),
@@ -99,9 +104,16 @@ const businessTools = {
         if (!session?.user?.id) return { error: "Unauthorized" };
         await connectDB();
 
-        const existing = await Client.findOne({ userId: session.user.id, name });
+        const existing = await Client.findOne({
+          userId: session.user.id,
+          name,
+        });
         if (existing) {
-             return { success: false, error: "Client already exists", clientId: existing._id };
+          return {
+            success: false,
+            error: "Client already exists",
+            clientId: existing._id,
+          };
         }
 
         const client = await Client.create({
@@ -113,7 +125,11 @@ const businessTools = {
           branding: {},
           documents: [],
         });
-        return { success: true, client, message: "Client created successfully" };
+        return {
+          success: true,
+          client,
+          message: "Client created successfully",
+        };
       } catch (error) {
         return { success: false, error: "Failed to create client" };
       }
@@ -121,7 +137,8 @@ const businessTools = {
   }),
 
   updateClient: tool({
-    description: "Update client details (e.g. if new info is found in a document).",
+    description:
+      "Update client details (e.g. if new info is found in a document).",
     inputSchema: z.object({
       clientId: z.string(),
       industry: z.string().optional(),
@@ -142,7 +159,7 @@ const businessTools = {
         const client = await Client.findOneAndUpdate(
           { _id: clientId, userId: session.user.id },
           { $set: update },
-          { new: true }
+          { new: true },
         );
         return { success: !!client, client };
       } catch (error) {
@@ -152,7 +169,8 @@ const businessTools = {
   }),
 
   getClientDetails: tool({
-    description: "Get full client context: branding, notes, and DOCUMENT HISTORY. Call this when a client is selected.",
+    description:
+      "Get full client context: branding, notes, and DOCUMENT HISTORY. Call this when a client is selected.",
     inputSchema: z.object({
       clientId: z.string().describe("The ID of the client"),
     }),
@@ -162,24 +180,29 @@ const businessTools = {
         if (!session?.user?.id) return { error: "Unauthorized" };
         await connectDB();
 
-        const client = await Client.findOne({ _id: clientId, userId: session.user.id });
+        const client = await Client.findOne({
+          _id: clientId,
+          userId: session.user.id,
+        });
         if (!client) return { success: false, error: "Client not found" };
 
         // Summarize documents for context window efficiency
-        const documentSummary = client.documents.map(d => ({
+        const documentSummary = client.documents.map((d) => ({
           name: d.name,
           type: d.type,
           uploadedAt: d.uploadedAt,
           version: d.version, // Include version in summary
-          snippet: d.content ? d.content.substring(0, 200) + "..." : "No content"
+          snippet: d.content
+            ? d.content.substring(0, 200) + "..."
+            : "No content",
         }));
 
         return {
           success: true,
           client: {
             ...client.toObject(),
-            documents: documentSummary
-          }
+            documents: documentSummary,
+          },
         };
       } catch (error) {
         return { success: false, error: "Failed to get client" };
@@ -211,7 +234,7 @@ const businessTools = {
         const client = await Client.findOneAndUpdate(
           { _id: clientId, userId: session.user.id },
           { $set: update },
-          { new: true }
+          { new: true },
         );
         return { success: !!client, branding: client?.branding };
       } catch (error) {
@@ -221,7 +244,8 @@ const businessTools = {
   }),
 
   saveClientDocument: tool({
-    description: "Save extracted text/content to the client's document list for future context.",
+    description:
+      "Save extracted text/content to the client's document list for future context.",
     inputSchema: z.object({
       clientId: z.string(),
       name: z.string(),
@@ -229,7 +253,7 @@ const businessTools = {
       type: z.string().optional(),
     }),
     execute: async ({ clientId, name, content, type }) => {
-       try {
+      try {
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) return { error: "Unauthorized" };
         await connectDB();
@@ -241,12 +265,12 @@ const businessTools = {
               documents: {
                 name,
                 content,
-                type: type || 'text',
-                uploadedAt: new Date()
-              }
-            }
+                type: type || "text",
+                uploadedAt: new Date(),
+              },
+            },
           },
-          { new: true }
+          { new: true },
         );
         return { success: !!client, message: "Document saved." };
       } catch (error) {
@@ -264,8 +288,8 @@ const businessTools = {
     }),
     execute: async ({ price, discountPercent }) => {
       return {
-        finalPrice: price - (price * (discountPercent / 100)),
-        saved: price * (discountPercent / 100)
+        finalPrice: price - price * (discountPercent / 100),
+        saved: price * (discountPercent / 100),
       };
     },
   }),
@@ -276,25 +300,28 @@ const businessTools = {
       clientName: z.string(),
       projectType: z.string(),
     }),
-     execute: async ({ clientName, projectType }) => {
+    execute: async ({ clientName, projectType }) => {
       return {
         clientName,
         projectType,
-        sections: ["Executive Summary", "Scope", "Timeline", "Cost", "Terms"]
+        sections: ["Executive Summary", "Scope", "Timeline", "Cost", "Terms"],
       };
     },
   }),
 
   createBusinessPlanDocx: tool({
-    description: "Create a DOCX business plan with VERSIONING. Uses the CLIENT'S branding automatically.",
+    description:
+      "Create a DOCX business plan with VERSIONING. Uses the CLIENT'S branding automatically.",
     inputSchema: z.object({
       clientId: z.string().describe("The ID of the client"),
       title: z.string(),
-      sections: z.array(z.object({
-        title: z.string(),
-        content: z.string(),
-        level: z.number().optional()
-      })),
+      sections: z.array(
+        z.object({
+          title: z.string(),
+          content: z.string(),
+          level: z.number().optional(),
+        }),
+      ),
     }),
     execute: async ({ clientId, title, sections }) => {
       try {
@@ -303,17 +330,22 @@ const businessTools = {
         await connectDB();
 
         // 1. Get Client & Branding
-        const client = await Client.findOne({ _id: clientId, userId: session.user.id });
+        const client = await Client.findOne({
+          _id: clientId,
+          userId: session.user.id,
+        });
         if (!client) return { error: "Client not found" };
 
         // 2. Determine Version
         // Regex to find existing files with same base title
         // We look at the 'documents' array to find max version
-        const sameTitleDocs = client.documents.filter(d => d.name.startsWith(title));
+        const sameTitleDocs = client.documents.filter((d) =>
+          d.name.startsWith(title),
+        );
         let nextVersion = 1;
         if (sameTitleDocs.length > 0) {
-            const maxVer = Math.max(...sameTitleDocs.map(d => d.version || 1));
-            nextVersion = maxVer + 1;
+          const maxVer = Math.max(...sameTitleDocs.map((d) => d.version || 1));
+          nextVersion = maxVer + 1;
         }
 
         const versionedTitle = `${title} (v${nextVersion})`;
@@ -323,9 +355,15 @@ const businessTools = {
         let finalLogoData = client.branding?.logo || null;
         if (!finalLogoData) {
           try {
-            const defaultLogoPath = path.join(process.cwd(), "public", "logo_aire.png");
+            const defaultLogoPath = path.join(
+              process.cwd(),
+              "public",
+              "logo_aire.png",
+            );
             finalLogoData = fs.readFileSync(defaultLogoPath).toString("base64");
-          } catch (e) { console.error("Default logo error", e); }
+          } catch (e) {
+            console.error("Default logo error", e);
+          }
         }
 
         // 4. Generate Buffer
@@ -340,7 +378,8 @@ const businessTools = {
         // 5. Save to GeneratedFile (The physical file)
         const generatedFile = await GeneratedFile.create({
           filename: finalFilename,
-          contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          contentType:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           data: buffer,
         });
 
@@ -351,25 +390,25 @@ const businessTools = {
             $push: {
               documents: {
                 name: versionedTitle,
-                type: 'docx',
+                type: "docx",
                 fileId: generatedFile._id,
                 uploadedAt: new Date(),
                 version: nextVersion,
-                content: "Generated Business Plan" // Minimal content for index
-              }
-            }
-          }
+                content: "Generated Business Plan", // Minimal content for index
+              },
+            },
+          },
         );
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const appUrl =
+          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         return {
           success: true,
           downloadUrl: `${appUrl}/api/files/${generatedFile._id}`,
           filename: finalFilename,
           version: nextVersion,
-          message: `Business plan created: ${versionedTitle}`
+          message: `Business plan created: ${versionedTitle}`,
         };
-
       } catch (error) {
         console.error("Error creating docx:", error);
         return { success: false, error: "Failed to create DOCX" };
@@ -402,7 +441,9 @@ async function processDocxInMessages(messages: any[]): Promise<any[]> {
               let text = await extractTextFromDocx(buffer);
               const MAX_DOC_CHARS = 30000;
               if (text.length > MAX_DOC_CHARS) {
-                text = text.substring(0, MAX_DOC_CHARS) + "\n\n...[Content truncated]...";
+                text =
+                  text.substring(0, MAX_DOC_CHARS) +
+                  "\n\n...[Content truncated]...";
               }
 
               return {
@@ -410,26 +451,29 @@ async function processDocxInMessages(messages: any[]): Promise<any[]> {
                 text: `[DOCX Document: ${part.filename || "document.docx"}]\n\n${text}`,
               };
             } catch (error) {
-              return { type: "text", text: `[Error processing DOCX: ${part.filename}]` };
+              return {
+                type: "text",
+                text: `[Error processing DOCX: ${part.filename}]`,
+              };
             }
           }
           return part;
-        })
+        }),
       );
       return { ...msg, parts: processedParts };
-    })
+    }),
   );
 }
 
 function sanitizeMessages(messages: any[]): any[] {
   const MAX_HISTORY = 15;
   if (messages.length > MAX_HISTORY) {
-     const systemMessage = messages.find((m) => m.role === "system");
-     const recentMessages = messages.slice(-MAX_HISTORY);
-     if (systemMessage && !recentMessages.includes(systemMessage)) {
-       return [systemMessage, ...recentMessages];
-     }
-     return recentMessages;
+    const systemMessage = messages.find((m) => m.role === "system");
+    const recentMessages = messages.slice(-MAX_HISTORY);
+    if (systemMessage && !recentMessages.includes(systemMessage)) {
+      return [systemMessage, ...recentMessages];
+    }
+    return recentMessages;
   }
   return messages;
 }
@@ -446,7 +490,7 @@ export async function POST(request: Request) {
 
   const instructions = await getAgentInstructionsWithComplement(
     BASE_BUSINESS_INSTRUCTIONS,
-    "business"
+    "business",
   );
 
   const businessAgent = new ToolLoopAgent({

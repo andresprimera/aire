@@ -65,12 +65,14 @@ export const Assistant = () => {
   const visibleAgents = useMemo(
     () =>
       agentTypes.filter(
-        (agent) => !("adminOnly" in agent) || agent.adminOnly !== true || isAdmin,
+        (agent) =>
+          !("adminOnly" in agent) || agent.adminOnly !== true || isAdmin,
       ),
     [isAdmin],
   );
 
   const [selectedAgent, setSelectedAgent] = useState(visibleAgents[0]);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState(modelOptions[0]);
   const [customPrompt, setCustomPrompt] = useState<string | null>(null);
@@ -82,17 +84,20 @@ export const Assistant = () => {
   useEffect(() => {
     const storedAgentId = localStorage.getItem(SELECTED_AGENT_STORAGE_KEY);
     if (storedAgentId) {
-      const storedAgent = visibleAgents.find((agent) => agent.id === storedAgentId);
+      const storedAgent = visibleAgents.find(
+        (agent) => agent.id === storedAgentId,
+      );
       if (storedAgent) {
         setSelectedAgent(storedAgent);
       }
     }
+    setIsHydrated(true);
   }, [visibleAgents]);
 
-  // Persist selected agent to localStorage
-  useEffect(() => {
-    localStorage.setItem(SELECTED_AGENT_STORAGE_KEY, selectedAgent.id);
-  }, [selectedAgent.id]);
+  const handleAgentChange = (agent: (typeof agentTypes)[number]) => {
+    setSelectedAgent(agent);
+    localStorage.setItem(SELECTED_AGENT_STORAGE_KEY, agent.id);
+  };
 
   // Fetch custom prompt when agent changes
   useEffect(() => {
@@ -141,7 +146,9 @@ export const Assistant = () => {
             <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
               <SidebarTrigger />
               <Separator orientation="vertical" className="mr-2 h-4" />
-              <div className="flex flex-1 items-center justify-between gap-2">
+              <div
+                className={`flex flex-1 items-center justify-between gap-2 ${isHydrated ? "fade-in visible animate-in duration-200" : "invisible"}`}
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1">
@@ -153,7 +160,7 @@ export const Assistant = () => {
                     {visibleAgents.map((agent) => (
                       <DropdownMenuItem
                         key={agent.id}
-                        onClick={() => setSelectedAgent(agent)}
+                        onClick={() => handleAgentChange(agent)}
                       >
                         {agent.label}
                       </DropdownMenuItem>
@@ -179,7 +186,7 @@ export const Assistant = () => {
                           Manage your consumption, agents, and account settings.
                         </SheetDescription>
                       </SheetHeader>
-                      <div className="py-4">
+                      <div className="p-4">
                         <Tabs defaultValue="consumption" className="w-full">
                           <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="consumption">

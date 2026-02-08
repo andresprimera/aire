@@ -4,10 +4,13 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { useState } from "react";
+import { MultiStepModal } from "@/components/multi-step-modal";
 
 export default function AdminPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [modalOpen, setModalOpen] = useState(false);
 
   // Show loading state
   if (status === "loading") {
@@ -57,7 +60,13 @@ export default function AdminPage() {
           </div>
         ) : (
           <div className="rounded-lg border bg-card p-6">
-            <h2 className="mb-4 font-semibold text-xl">Admin Dashboard</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-semibold text-xl">Admin Dashboard</h2>
+              <Button onClick={() => setModalOpen(true)}>
+                Open Multi-Step Modal
+              </Button>
+            </div>
+
             <p className="text-muted-foreground">
               Welcome, admin! This is your admin panel.
             </p>
@@ -74,6 +83,8 @@ export default function AdminPage() {
                 </p>
               </div>
             </div>
+
+            <MultiStepModal open={modalOpen} onOpenChange={setModalOpen} />
           </div>
         )}
       </div>

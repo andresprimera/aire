@@ -218,7 +218,7 @@ const ComposerSendButton: FC = () => {
         type="submit"
         variant="default"
         size="icon"
-        className="aui-composer-send size-8 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+        className="aui-composer-send size-8 rounded-full disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Send message"
       >
         <ArrowUpIcon className="aui-composer-send-icon size-4" />
@@ -226,8 +226,6 @@ const ComposerSendButton: FC = () => {
     </ComposerPrimitive.Send>
   );
 };
-
-
 
 const MessageError: FC = () => {
   return (

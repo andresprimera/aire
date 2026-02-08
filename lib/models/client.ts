@@ -19,7 +19,7 @@ export interface IClient extends Document {
   documents: {
     name: string;
     content?: string; // Extracted text or summary
-    type?: string;    // 'docx', 'pdf', 'text'
+    type?: string; // 'docx', 'pdf', 'text'
     fileId?: mongoose.Types.ObjectId; // Reference to GeneratedFile if created by system
     uploadedAt: Date;
     version?: number;
@@ -38,7 +38,7 @@ const ClientDocumentSchema = new Schema(
     uploadedAt: { type: Date, default: Date.now },
     version: { type: Number, default: 1 },
   },
-  { _id: false } // Avoid creating _id for subdocuments unless necessary
+  { _id: false }, // Avoid creating _id for subdocuments unless necessary
 );
 
 const ClientSchema = new Schema<IClient>(
@@ -63,8 +63,8 @@ const ClientSchema = new Schema<IClient>(
       trim: true,
     },
     website: {
-        type: String,
-        trim: true,
+      type: String,
+      trim: true,
     },
     branding: {
       logo: String,
