@@ -149,7 +149,10 @@ export const Assistant = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to save prompt");
+        throw new Error(
+          data.error ||
+            `Failed to ${customPrompt ? "update" : "create"} prompt`,
+        );
       }
 
       const data = await response.json();
@@ -158,7 +161,9 @@ export const Assistant = () => {
     } catch (error) {
       console.error("Error saving prompt:", error);
       setSaveError(
-        error instanceof Error ? error.message : "Failed to save prompt",
+        error instanceof Error
+          ? error.message
+          : `Failed to ${customPrompt ? "update" : "create"} prompt`,
       );
     } finally {
       setIsSavingPrompt(false);
@@ -388,7 +393,7 @@ export const Assistant = () => {
                                                   e.target.value,
                                                 )
                                               }
-                                              className="min-h-[200px] resize-y"
+                                              className="max-h-[400px] min-h-[200px] resize-y"
                                               disabled={
                                                 isSavingPrompt ||
                                                 isDeletingPrompt
