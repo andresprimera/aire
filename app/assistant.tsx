@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import {
   useChatRuntime,
@@ -19,6 +19,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +31,15 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, Settings, Menu } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ChevronDown, Settings, Menu, Plus, Edit } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -38,6 +47,12 @@ const agentTypes = [
   { id: "sales", label: "Proposals & Sales" },
   { id: "support", label: "Post-Sales Support" },
   { id: "business", label: "Business Plans", adminOnly: true },
+];
+
+const modelOptions = [
+  { id: "gpt-4o", label: "GPT-4o" },
+  { id: "gpt-4.1-nano", label: "GPT-4.1 Nano" },
+  { id: "gpt-4-turbo", label: "GPT-4 Turbo" },
 ];
 
 export const Assistant = () => {
@@ -51,6 +66,39 @@ export const Assistant = () => {
 
   const [selectedAgent, setSelectedAgent] = useState(visibleAgents[0]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(modelOptions[0]);
+  const [customPrompt, setCustomPrompt] = useState<string | null>(null);
+  const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+
+  // Fetch custom prompt when agent changes
+  useEffect(() => {
+    const fetchCustomPrompt = async () => {
+      if (!selectedAgent) return;
+
+      setIsLoadingPrompt(true);
+      setPromptError(null);
+      try {
+        const response = await fetch(
+          `/api/user-agent-params?agentId=${selectedAgent.id}`,
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setCustomPrompt(data.promptComplement || null);
+        } else {
+          setPromptError("Failed to load custom prompt");
+        }
+      } catch (error) {
+        console.error("Error fetching custom prompt:", error);
+        setPromptError("Failed to load custom prompt");
+      } finally {
+        setIsLoadingPrompt(false);
+      }
+    };
+
+    fetchCustomPrompt();
+  }, [selectedAgent]);
 
   const transport = useMemo(
     () =>
@@ -133,11 +181,106 @@ export const Assistant = () => {
                             </div>
                           </TabsContent>
                           <TabsContent value="agents" className="space-y-4">
-                            <div className="text-sm">
-                              <h3 className="mb-2 font-semibold">Agents</h3>
-                              <p className="text-muted-foreground">
-                                Configure and manage your AI agents.
-                              </p>
+                            <div className="space-y-4">
+                              <div>
+                                <h3 className="mb-2 font-semibold text-sm">
+                                  Model Configuration
+                                </h3>
+                                <div className="space-y-3">
+                                  <div className="space-y-2">
+                                    <div className="text-muted-foreground text-xs">
+                                      Select Model
+                                    </div>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          className="w-full justify-between"
+                                        >
+                                          {selectedModel.label}
+                                          <ChevronDown className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent className="w-full">
+                                        <DropdownMenuLabel>
+                                          Available Models
+                                        </DropdownMenuLabel>
+                                        {modelOptions.map((model) => (
+                                          <DropdownMenuItem
+                                            key={model.id}
+                                            onClick={() =>
+                                              setSelectedModel(model)
+                                            }
+                                          >
+                                            {model.label}
+                                          </DropdownMenuItem>
+                                        ))}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <div className="text-muted-foreground text-xs">
+                                      Custom Prompt
+                                    </div>
+                                    {isLoadingPrompt ? (
+                                      <div className="rounded-md border bg-muted p-3 text-muted-foreground text-sm">
+                                        Loading...
+                                      </div>
+                                    ) : promptError ? (
+                                      <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-destructive text-sm">
+                                        {promptError}
+                                      </div>
+                                    ) : customPrompt ? (
+                                      <div className="rounded-md border bg-muted p-3 text-sm">
+                                        <p className="line-clamp-3">
+                                          {customPrompt}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <div className="rounded-md border border-dashed bg-muted/50 p-3 text-muted-foreground text-sm">
+                                        No custom prompt configured
+                                      </div>
+                                    )}
+                                    <Dialog
+                                      open={isPromptModalOpen}
+                                      onOpenChange={setIsPromptModalOpen}
+                                    >
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="w-full"
+                                        >
+                                          {customPrompt ? (
+                                            <>
+                                              <Edit className="mr-2 h-4 w-4" />
+                                              Edit Custom Prompt
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus className="mr-2 h-4 w-4" />
+                                              Create Custom Prompt
+                                            </>
+                                          )}
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>
+                                            {customPrompt
+                                              ? "Edit Custom Prompt"
+                                              : "Create Custom Prompt"}
+                                          </DialogTitle>
+                                          <DialogDescription>
+                                            This modal will be implemented soon.
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </TabsContent>
                           <TabsContent value="account" className="space-y-4">
