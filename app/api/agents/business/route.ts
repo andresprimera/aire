@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import User, { IUser } from "@/lib/models/user";
+import Client, { IClient } from "@/lib/models/client";
 import GeneratedFile from "@/lib/models/generated-file";
 import {
   extractTextFromDocx,
@@ -16,296 +16,369 @@ import {
 } from "@/lib/document-processor";
 import { getAgentInstructionsWithComplement } from "@/lib/agent-utils";
 
-const BASE_BUSINESS_INSTRUCTIONS = `You are an AI agent specialized in creating comprehensive business plans and sales proposals.
+const BASE_BUSINESS_INSTRUCTIONS = `You are an AI agent specialized in creating comprehensive business plans and sales proposals for specific clients.
 
-Your workflow:
-1. When a user requests a business plan, start by asking clarifying questions to gather requirements (company name, industry, target market, funding needs, etc.)
-2. Analyze any documents the user shares (DOCX, PDF, images) to gather information
-3. **IMPORTANT - Branding Extraction**: Actively look for and extract branding information from any provided documents:
-   - Company logo (extract as base64 if present in images)
-   - Brand colors (look for color specifications, hex codes in style guides, or dominant colors)
-   - If you find branding information, use the saveBranding tool to store it for future use
-4. **Check for Stored Branding**: Use the getBranding tool at the start to check if the user already has stored branding information
-5. Once you have sufficient information, create a detailed first draft of the business plan
-6. After providing the draft, iterate and refine based on user feedback
-7. When the user is satisfied, generate the final business plan as a DOCX file using the createBusinessPlanDocx tool
-   - The tool will automatically use stored branding if available
-   - If branding info is missing when generating the first draft, ask the user to confirm or provide it
+**CRITICAL: IDENTIFICATION FIRST WORKFLOW**
+Your first priority is always to identify WHICH client you are working for. You cannot proceed without a client context.
 
-**Branding Storage**: Once branding information (logo, colors) is saved, it will be automatically used for all future business plans. Only ask the user for confirmation if no stored branding exists.
+**Workflow Stages:**
 
-You can have multiple back-and-forth conversations to refine the plan. The final deliverable should always be a professionally formatted DOCX document.
+1.  **Analyze & Search (The "Entry")**:
+    -   Scan the user's message and any uploaded documents for a **Company Name**.
+    -   **If found**: IMMEDIATELY call \`searchClients(name)\` to see if they exist.
+    -   **If NOT found**: Ask the user: "Which client is this for?"
 
-Important: Answer in the language the customer uses.`;
+2.  **Resolution (The "Decision")**:
+    -   **Match Found**:
+        -   Ask: "I found an existing client [Name]. Is this the one you want to work on?"
+        -   **If Yes**: Call \`getClientDetails\` to load their history (including past plans).
+        -   **If Update Needed**: If the new docs have new info (e.g., new website/address), use \`updateClient\`.
+    -   **No Match**:
+        -   If you have a clear company name from a document, call \`createClient\` automatically.
+        -   Then use \`saveClientDocument\` to store the uploaded file for context.
 
-// Define tools separately so they can be reused
+3.  **Drafting & Iteration**:
+    -   Once the client is active, use their specific context (branding, past docs) to draft the plan.
+    -   If the user asks about an old plan, check the client's document history (provided by \`getClientDetails\`).
+
+4.  **Final Generation (The "Output")**:
+    -   Use \`createBusinessPlanDocx\`.
+    -   The system will automatically handle versioning (e.g., "Plan (v2).docx").
+
+**Rules**:
+-   **Always** search before creating.
+-   **Always** save uploaded documents to the client profile.
+-   **Always** use the client's stored branding.
+-   Answer in the language the customer uses.`;
+
 const businessTools = {
-  calculateDiscount: tool({
-    description: "Calculate a discount for a given price and percentage",
+  // --- Client Management Tools ---
+  searchClients: tool({
+    description: "Search for existing clients by name (fuzzy match). Use this FIRST when you identify a company name.",
     inputSchema: z.object({
-      price: z.number().describe("The original price"),
-      discountPercent: z
-        .number()
-        .describe("The discount percentage (e.g., 10 for 10%)"),
+      query: z.string().describe("Company name to search for"),
+    }),
+    execute: async ({ query }) => {
+      try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) return { error: "Unauthorized" };
+        await connectDB();
+
+        // Case-insensitive regex search
+        const regex = new RegExp(query, "i");
+        const clients = await Client.find({
+          userId: session.user.id,
+          name: { $regex: regex }
+        })
+        .select("name industry website updatedAt")
+        .limit(5);
+
+        return {
+          success: true,
+          matches: clients,
+          count: clients.length,
+          message: clients.length > 0 ? "Found existing clients." : "No clients found."
+        };
+      } catch (error) {
+        return { success: false, error: "Search failed" };
+      }
+    },
+  }),
+
+  createClient: tool({
+    description: "Create a new client profile. Only do this if `searchClients` returns no matches.",
+    inputSchema: z.object({
+      name: z.string().describe("Company Name"),
+      industry: z.string().optional(),
+      description: z.string().optional(),
+      website: z.string().optional(),
+    }),
+    execute: async ({ name, industry, description, website }) => {
+      try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) return { error: "Unauthorized" };
+        await connectDB();
+
+        const existing = await Client.findOne({ userId: session.user.id, name });
+        if (existing) {
+             return { success: false, error: "Client already exists", clientId: existing._id };
+        }
+
+        const client = await Client.create({
+          userId: session.user.id,
+          name,
+          industry,
+          description,
+          website,
+          branding: {},
+          documents: [],
+        });
+        return { success: true, client, message: "Client created successfully" };
+      } catch (error) {
+        return { success: false, error: "Failed to create client" };
+      }
+    },
+  }),
+
+  updateClient: tool({
+    description: "Update client details (e.g. if new info is found in a document).",
+    inputSchema: z.object({
+      clientId: z.string(),
+      industry: z.string().optional(),
+      description: z.string().optional(),
+      website: z.string().optional(),
+    }),
+    execute: async ({ clientId, industry, description, website }) => {
+      try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) return { error: "Unauthorized" };
+        await connectDB();
+
+        const update: any = {};
+        if (industry) update.industry = industry;
+        if (description) update.description = description;
+        if (website) update.website = website;
+
+        const client = await Client.findOneAndUpdate(
+          { _id: clientId, userId: session.user.id },
+          { $set: update },
+          { new: true }
+        );
+        return { success: !!client, client };
+      } catch (error) {
+        return { success: false, error: "Update failed" };
+      }
+    },
+  }),
+
+  getClientDetails: tool({
+    description: "Get full client context: branding, notes, and DOCUMENT HISTORY. Call this when a client is selected.",
+    inputSchema: z.object({
+      clientId: z.string().describe("The ID of the client"),
+    }),
+    execute: async ({ clientId }) => {
+      try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) return { error: "Unauthorized" };
+        await connectDB();
+
+        const client = await Client.findOne({ _id: clientId, userId: session.user.id });
+        if (!client) return { success: false, error: "Client not found" };
+
+        // Summarize documents for context window efficiency
+        const documentSummary = client.documents.map(d => ({
+          name: d.name,
+          type: d.type,
+          uploadedAt: d.uploadedAt,
+          version: d.version, // Include version in summary
+          snippet: d.content ? d.content.substring(0, 200) + "..." : "No content"
+        }));
+
+        return {
+          success: true,
+          client: {
+            ...client.toObject(),
+            documents: documentSummary
+          }
+        };
+      } catch (error) {
+        return { success: false, error: "Failed to get client" };
+      }
+    },
+  }),
+
+  saveClientBranding: tool({
+    description: "Save branding (logo/colors) for a client.",
+    inputSchema: z.object({
+      clientId: z.string(),
+      logo: z.string().optional(),
+      primaryColor: z.string().optional(),
+      secondaryColor: z.string().optional(),
+      font: z.string().optional(),
+    }),
+    execute: async ({ clientId, logo, primaryColor, secondaryColor, font }) => {
+      try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) return { error: "Unauthorized" };
+        await connectDB();
+
+        const update: any = {};
+        if (logo) update["branding.logo"] = logo;
+        if (primaryColor) update["branding.primaryColor"] = primaryColor;
+        if (secondaryColor) update["branding.secondaryColor"] = secondaryColor;
+        if (font) update["branding.font"] = font;
+
+        const client = await Client.findOneAndUpdate(
+          { _id: clientId, userId: session.user.id },
+          { $set: update },
+          { new: true }
+        );
+        return { success: !!client, branding: client?.branding };
+      } catch (error) {
+        return { success: false, error: "Failed to save branding" };
+      }
+    },
+  }),
+
+  saveClientDocument: tool({
+    description: "Save extracted text/content to the client's document list for future context.",
+    inputSchema: z.object({
+      clientId: z.string(),
+      name: z.string(),
+      content: z.string(),
+      type: z.string().optional(),
+    }),
+    execute: async ({ clientId, name, content, type }) => {
+       try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) return { error: "Unauthorized" };
+        await connectDB();
+
+        const client = await Client.findOneAndUpdate(
+          { _id: clientId, userId: session.user.id },
+          {
+            $push: {
+              documents: {
+                name,
+                content,
+                type: type || 'text',
+                uploadedAt: new Date()
+              }
+            }
+          },
+          { new: true }
+        );
+        return { success: !!client, message: "Document saved." };
+      } catch (error) {
+        return { success: false, error: "Failed to save document" };
+      }
+    },
+  }),
+
+  // --- Utility Tools ---
+  calculateDiscount: tool({
+    description: "Calculate a discount",
+    inputSchema: z.object({
+      price: z.number(),
+      discountPercent: z.number(),
     }),
     execute: async ({ price, discountPercent }) => {
-      const discount = price * (discountPercent / 100);
-      const finalPrice = price - discount;
       return {
-        originalPrice: price,
-        discountPercent,
-        discountAmount: discount,
-        finalPrice,
+        finalPrice: price - (price * (discountPercent / 100)),
+        saved: price * (discountPercent / 100)
       };
     },
   }),
+
   generateProposalOutline: tool({
-    description: "Generate a proposal outline based on client needs",
+    description: "Generate a proposal outline",
     inputSchema: z.object({
-      clientName: z.string().describe("The name of the client"),
-      projectType: z.string().describe("The type of project or service"),
-      budget: z.number().optional().describe("The client budget if known"),
+      clientName: z.string(),
+      projectType: z.string(),
     }),
-    execute: async ({ clientName, projectType, budget }) => {
+     execute: async ({ clientName, projectType }) => {
       return {
         clientName,
         projectType,
-        budget: budget ?? "To be discussed",
-        sections: [
-          "Executive Summary",
-          "Project Scope",
-          "Timeline",
-          "Deliverables",
-          "Pricing",
-          "Terms & Conditions",
-        ],
+        sections: ["Executive Summary", "Scope", "Timeline", "Cost", "Terms"]
       };
     },
   }),
-  getBranding: tool({
-    description:
-      "Get the user's stored branding information (logo and colors). Call this at the start of business plan creation to check if branding info is already saved.",
-    inputSchema: z.object({}),
-    execute: async () => {
-      try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-          return {
-            success: false,
-            message: "No user session found",
-          };
-        }
 
-        await connectDB();
-        const user = await User.findById(session.user.id);
-
-        if (!user) {
-          return {
-            success: false,
-            message: "User not found",
-          };
-        }
-
-        return {
-          success: true,
-          hasBranding: !!(
-            user.logo ||
-            user.primaryColor ||
-            user.secondaryColor
-          ),
-          logo: user.logo || null,
-          primaryColor: user.primaryColor || null,
-          secondaryColor: user.secondaryColor || null,
-        };
-      } catch (error) {
-        console.error("Error retrieving branding:", error);
-        return {
-          success: false,
-          message: "Failed to retrieve branding information",
-        };
-      }
-    },
-  }),
-  saveBranding: tool({
-    description:
-      "Save the user's branding information (logo as base64 string and colors) for future use. This should be called when you extract branding from documents or when the user provides it.",
-    inputSchema: z.object({
-      logo: z
-        .string()
-        .optional()
-        .describe("Base64 encoded logo image (without data:image prefix)"),
-      primaryColor: z
-        .string()
-        .optional()
-        .describe("Primary brand color in hex format (e.g., '#1E40AF')"),
-      secondaryColor: z
-        .string()
-        .optional()
-        .describe("Secondary brand color in hex format (e.g., '#3B82F6')"),
-    }),
-    execute: async ({ logo, primaryColor, secondaryColor }) => {
-      try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-          return {
-            success: false,
-            message: "No user session found",
-          };
-        }
-
-        await connectDB();
-        const updateData: Partial<
-          Pick<IUser, "logo" | "primaryColor" | "secondaryColor">
-        > = {};
-        if (logo) updateData.logo = logo;
-        if (primaryColor) updateData.primaryColor = primaryColor;
-        if (secondaryColor) updateData.secondaryColor = secondaryColor;
-
-        const user = await User.findByIdAndUpdate(
-          session.user.id,
-          { $set: updateData },
-          { new: true },
-        );
-
-        if (!user) {
-          return {
-            success: false,
-            message: "User not found",
-          };
-        }
-
-        return {
-          success: true,
-          message: "Branding information saved successfully",
-          saved: {
-            logo: !!logo,
-            primaryColor: !!primaryColor,
-            secondaryColor: !!secondaryColor,
-          },
-        };
-      } catch (error) {
-        console.error("Error saving branding:", error);
-        return {
-          success: false,
-          message: "Failed to save branding information",
-        };
-      }
-    },
-  }),
   createBusinessPlanDocx: tool({
-    description:
-      "Create a professionally formatted DOCX file for a business plan. Automatically uses stored user branding (logo and colors) if available. Use this when the user is ready for the final document. The document will be provided as a downloadable file.",
+    description: "Create a DOCX business plan with VERSIONING. Uses the CLIENT'S branding automatically.",
     inputSchema: z.object({
-      title: z
-        .string()
-        .describe("The main title of the business plan document"),
-      sections: z
-        .array(
-          z.object({
-            title: z.string().describe("Section heading"),
-            content: z.string().describe("Section content text"),
-            level: z
-              .number()
-              .optional()
-              .describe("Heading level (1, 2, or 3). Default is 1"),
-          }),
-        )
-        .describe("Array of sections with titles and content"),
-      primaryColor: z
-        .string()
-        .optional()
-        .describe(
-          "Optional override: Primary color for headings in hex format (e.g., '#1E40AF'). If not specified, will use stored user color or default blue.",
-        ),
-      secondaryColor: z
-        .string()
-        .optional()
-        .describe(
-          "Optional override: Secondary color for subheadings in hex format (e.g., '#3B82F6'). If not specified, will use stored user color or default lighter blue.",
-        ),
+      clientId: z.string().describe("The ID of the client"),
+      title: z.string(),
+      sections: z.array(z.object({
+        title: z.string(),
+        content: z.string(),
+        level: z.number().optional()
+      })),
     }),
-    execute: async ({ title, sections, primaryColor, secondaryColor }) => {
+    execute: async ({ clientId, title, sections }) => {
       try {
-        // Get stored branding if available
         const session = await getServerSession(authOptions);
-        let storedLogo = null;
-        let storedPrimaryColor = null;
-        let storedSecondaryColor = null;
+        if (!session?.user?.id) return { error: "Unauthorized" };
+        await connectDB();
 
-        if (session?.user?.id) {
-          await connectDB();
-          const user = await User.findById(session.user.id);
-          if (user) {
-            storedLogo = user.logo;
-            storedPrimaryColor = user.primaryColor;
-            storedSecondaryColor = user.secondaryColor;
-          }
+        // 1. Get Client & Branding
+        const client = await Client.findOne({ _id: clientId, userId: session.user.id });
+        if (!client) return { error: "Client not found" };
+
+        // 2. Determine Version
+        // Regex to find existing files with same base title
+        // We look at the 'documents' array to find max version
+        const sameTitleDocs = client.documents.filter(d => d.name.startsWith(title));
+        let nextVersion = 1;
+        if (sameTitleDocs.length > 0) {
+            const maxVer = Math.max(...sameTitleDocs.map(d => d.version || 1));
+            nextVersion = maxVer + 1;
         }
 
-        // Use stored branding as fallback, then defaults
-        const finalPrimaryColor = primaryColor || storedPrimaryColor;
-        const finalSecondaryColor = secondaryColor || storedSecondaryColor;
+        const versionedTitle = `${title} (v${nextVersion})`;
+        const finalFilename = `${versionedTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.docx`;
 
-        // Handle logo: use stored base64, or load default logo as base64
-        let finalLogoData = storedLogo;
-
+        // 3. Branding Setup
+        let finalLogoData = client.branding?.logo || null;
         if (!finalLogoData) {
-          // Load default logo and convert to base64
           try {
-            const defaultLogoPath = path.join(
-              process.cwd(),
-              "public",
-              "logo_aire.png",
-            );
-            const logoBuffer = fs.readFileSync(defaultLogoPath);
-            finalLogoData = logoBuffer.toString("base64");
-          } catch (error) {
-            console.error("Error loading default logo:", error);
-            // Continue without logo if default can't be loaded
-          }
+            const defaultLogoPath = path.join(process.cwd(), "public", "logo_aire.png");
+            finalLogoData = fs.readFileSync(defaultLogoPath).toString("base64");
+          } catch (e) { console.error("Default logo error", e); }
         }
 
+        // 4. Generate Buffer
         const buffer = await createBusinessPlanFromTemplate({
-          title,
+          title: versionedTitle, // Use versioned title in doc
           sections,
           logoData: finalLogoData || undefined,
-          primaryColor: finalPrimaryColor || undefined,
-          secondaryColor: finalSecondaryColor || undefined,
+          primaryColor: client.branding?.primaryColor,
+          secondaryColor: client.branding?.secondaryColor,
         });
 
-        // Save to DB
+        // 5. Save to GeneratedFile (The physical file)
         const generatedFile = await GeneratedFile.create({
-          filename: `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.docx`,
-          contentType:
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          filename: finalFilename,
+          contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           data: buffer,
         });
 
-        const appUrl =
-          process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        const downloadUrl = `${appUrl}/api/files/${generatedFile._id}`;
+        // 6. Link to Client History (The reference)
+        await Client.updateOne(
+          { _id: clientId },
+          {
+            $push: {
+              documents: {
+                name: versionedTitle,
+                type: 'docx',
+                fileId: generatedFile._id,
+                uploadedAt: new Date(),
+                version: nextVersion,
+                content: "Generated Business Plan" // Minimal content for index
+              }
+            }
+          }
+        );
 
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         return {
           success: true,
-          message: `Business plan "${title}" created successfully.`,
-          downloadUrl,
-          filename: generatedFile.filename,
-          note: "The file has been generated and saved. Provide the download URL to the user.",
+          downloadUrl: `${appUrl}/api/files/${generatedFile._id}`,
+          filename: finalFilename,
+          version: nextVersion,
+          message: `Business plan created: ${versionedTitle}`
         };
+
       } catch (error) {
-        console.error("Error creating business plan DOCX:", error);
-        return {
-          success: false,
-          error: "Failed to create DOCX file. Please try again.",
-        };
+        console.error("Error creating docx:", error);
+        return { success: false, error: "Failed to create DOCX" };
       }
     },
   }),
 };
 
-/**
- * Process DOCX files in messages by extracting text content
- */
+// ... Utility Functions ...
 async function processDocxInMessages(messages: any[]): Promise<any[]> {
   return Promise.all(
     messages.map(async (msg) => {
@@ -313,81 +386,51 @@ async function processDocxInMessages(messages: any[]): Promise<any[]> {
 
       const processedParts = await Promise.all(
         msg.parts.map(async (part: any) => {
-          // Check if this is a DOCX file
-          // The SDK might send 'mediaType' or 'mimeType' depending on the version/context
           const mimeType = part.mediaType || part.mimeType;
-
           if (part.type === "file" && mimeType && isDocxFile(mimeType)) {
             try {
               let buffer: Buffer;
-
-              // Handle data URL (base64)
               if (part.url && part.url.startsWith("data:")) {
                 const base64Data = part.url.split(",")[1];
                 buffer = Buffer.from(base64Data, "base64");
-              }
-              // Handle File object (if present in some contexts)
-              else if (part.file) {
+              } else if (part.file) {
                 buffer = await fileToBuffer(part.file);
               } else {
-                console.warn("DOCX file part has no URL or file data", part);
                 return part;
               }
 
-              // Extract text from DOCX
               let text = await extractTextFromDocx(buffer);
-
-              // Truncate if too long (approx 30k chars)
               const MAX_DOC_CHARS = 30000;
               if (text.length > MAX_DOC_CHARS) {
-                text =
-                  text.substring(0, MAX_DOC_CHARS) +
-                  "\n\n...[Content truncated due to size limit]...";
+                text = text.substring(0, MAX_DOC_CHARS) + "\n\n...[Content truncated]...";
               }
 
-              // Replace file part with text part containing extracted content
               return {
                 type: "text",
-                text: `[DOCX Document: ${part.filename || part.name || "document.docx"}]\n\n${text}`,
+                text: `[DOCX Document: ${part.filename || "document.docx"}]\n\n${text}`,
               };
             } catch (error) {
-              console.error("Error processing DOCX file:", error);
-              // Return error message as text
-              return {
-                type: "text",
-                text: `[Error: Could not process DOCX file "${part.filename || part.name || "document.docx"}"]`,
-              };
+              return { type: "text", text: `[Error processing DOCX: ${part.filename}]` };
             }
           }
           return part;
-        }),
+        })
       );
-
       return { ...msg, parts: processedParts };
-    }),
+    })
   );
 }
 
-/**
- * Sanitize messages to reduce context size:
- * 1. Truncate extracted text from DOCX files if too long (handled in processDocxInMessages)
- * 2. Keep only the last N messages to prevent infinite growth
- */
 function sanitizeMessages(messages: any[]): any[] {
-  const MAX_HISTORY = 15; // Keep last 15 messages (+ system prompt)
-
-  // 1. Truncate history
+  const MAX_HISTORY = 15;
   if (messages.length > MAX_HISTORY) {
-    const systemMessage = messages.find((m) => m.role === "system");
-    const recentMessages = messages.slice(-MAX_HISTORY);
-
-    // If we have a system message, ensure it's preserved at the start
-    if (systemMessage && !recentMessages.includes(systemMessage)) {
-      return [systemMessage, ...recentMessages];
-    }
-    return recentMessages;
+     const systemMessage = messages.find((m) => m.role === "system");
+     const recentMessages = messages.slice(-MAX_HISTORY);
+     if (systemMessage && !recentMessages.includes(systemMessage)) {
+       return [systemMessage, ...recentMessages];
+     }
+     return recentMessages;
   }
-
   return messages;
 }
 
@@ -398,20 +441,14 @@ export async function POST(request: Request) {
   }
 
   const { messages } = await request.json();
-
-  // 1. Process DOCX files (extract text)
   const processedMessages = await processDocxInMessages(messages);
-
-  // 2. Sanitize history (remove base64, truncate old messages)
   const sanitizedMessages = sanitizeMessages(processedMessages);
 
-  // Get agent instructions with user-specific prompt complement
   const instructions = await getAgentInstructionsWithComplement(
     BASE_BUSINESS_INSTRUCTIONS,
-    "business",
+    "business"
   );
 
-  // Create agent with user-specific instructions
   const businessAgent = new ToolLoopAgent({
     model: openai("gpt-4o"),
     instructions,

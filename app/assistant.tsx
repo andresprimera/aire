@@ -55,13 +55,19 @@ const modelOptions = [
   { id: "gpt-4-turbo", label: "GPT-4 Turbo" },
 ];
 
+const SELECTED_AGENT_STORAGE_KEY = "aire-selected-agent";
+
 export const Assistant = () => {
   const router = useRouter();
   const { data: session } = useSession();
 
   const isAdmin = session?.user?.isAdmin ?? false;
-  const visibleAgents = agentTypes.filter(
-    (agent) => !("adminOnly" in agent) || agent.adminOnly !== true || isAdmin,
+  const visibleAgents = useMemo(
+    () =>
+      agentTypes.filter(
+        (agent) => !("adminOnly" in agent) || agent.adminOnly !== true || isAdmin,
+      ),
+    [isAdmin],
   );
 
   const [selectedAgent, setSelectedAgent] = useState(visibleAgents[0]);
@@ -71,6 +77,22 @@ export const Assistant = () => {
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [promptError, setPromptError] = useState<string | null>(null);
+
+  // Restore selected agent from localStorage on mount
+  useEffect(() => {
+    const storedAgentId = localStorage.getItem(SELECTED_AGENT_STORAGE_KEY);
+    if (storedAgentId) {
+      const storedAgent = visibleAgents.find((agent) => agent.id === storedAgentId);
+      if (storedAgent) {
+        setSelectedAgent(storedAgent);
+      }
+    }
+  }, [visibleAgents]);
+
+  // Persist selected agent to localStorage
+  useEffect(() => {
+    localStorage.setItem(SELECTED_AGENT_STORAGE_KEY, selectedAgent.id);
+  }, [selectedAgent.id]);
 
   // Fetch custom prompt when agent changes
   useEffect(() => {
