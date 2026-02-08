@@ -9,16 +9,38 @@ import UserAgentParams from "@/lib/models/user-agent-params";
 
 /**
  * Generate a cryptographically secure random password
+ * Uses rejection sampling to avoid modulo bias
  */
 function generatePassword(): string {
   const length = 12;
   const charset =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-  const randomBytes = crypto.randomBytes(length);
+  const charsetLength = charset.length;
+  const maxValidValue = 256 - (256 % charsetLength); // Avoid bias
+  
   let password = "";
-  for (let i = 0; i < length; i++) {
-    password += charset.charAt(randomBytes[i] % charset.length);
+  const randomBytes = crypto.randomBytes(length * 2); // Generate extra bytes for rejection sampling
+  let byteIndex = 0;
+  
+  while (password.length < length && byteIndex < randomBytes.length) {
+    const byte = randomBytes[byteIndex];
+    byteIndex++;
+    
+    // Rejection sampling: only use bytes that don't introduce bias
+    if (byte < maxValidValue) {
+      password += charset.charAt(byte % charsetLength);
+    }
   }
+  
+  // Fallback: if we run out of bytes (extremely unlikely), generate more
+  while (password.length < length) {
+    const extraBytes = crypto.randomBytes(1);
+    const byte = extraBytes[0];
+    if (byte < maxValidValue) {
+      password += charset.charAt(byte % charsetLength);
+    }
+  }
+  
   return password;
 }
 
