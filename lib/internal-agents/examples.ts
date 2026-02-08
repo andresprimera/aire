@@ -112,7 +112,7 @@ async function exampleFileOnlyInput() {
 /**
  * Run all examples
  */
-async function _runExamples() {
+async function runExamples() {
   console.log("=== Internal Agents Usage Examples ===\n");
 
   await exampleSupportAgent();
@@ -135,4 +135,5 @@ export {
   exampleBusinessAgent,
   exampleSalesAgent,
   exampleFileOnlyInput,
+  runExamples,
 };

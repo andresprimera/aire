@@ -28,7 +28,7 @@ export interface InternalAgentInput {
     companyName?: string;
     website?: string;
     description?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -50,7 +50,7 @@ export interface InternalAgentOutput {
     companyName?: string;
     keyPoints?: string[];
     tone?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 
   /**
