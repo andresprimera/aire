@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { StepOne } from "@/components/steps/step-one";
 import { StepTwo } from "@/components/steps/step-two";
-import { StepThree } from "@/components/steps/step-three";
 import { Progress } from "@/components/ui/progress";
 import { Loader2 } from "lucide-react";
 
@@ -28,7 +27,6 @@ interface FormData {
   email: string;
   files: File[];
   contextText: string;
-  agentPrompts: Record<string, string>;
 }
 
 export function MultiStepModal({
@@ -41,9 +39,7 @@ export function MultiStepModal({
     email: "",
     files: [],
     contextText: "",
-    agentPrompts: {},
   });
-  const [isStepThreeReady, setIsStepThreeReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{
     success: boolean;
@@ -51,7 +47,7 @@ export function MultiStepModal({
     password?: string;
     error?: string;
   } | null>(null);
-  const totalSteps = 3;
+  const totalSteps = 2;
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -69,16 +65,20 @@ export function MultiStepModal({
     try {
       setIsSubmitting(true);
 
-      // Call API to create user with agent prompts
+      // Prepare form data with files and context
+      const submitFormData = new FormData();
+      submitFormData.append("email", formData.email);
+      if (formData.contextText) {
+        submitFormData.append("contextText", formData.contextText);
+      }
+      formData.files.forEach((file, index) => {
+        submitFormData.append(`file-${index}`, file);
+      });
+
+      // Call API to create user (internally generates prompts and saves them)
       const response = await fetch("/api/admin/users", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          agentPrompts: formData.agentPrompts,
-        }),
+        body: submitFormData,
       });
 
       const data = await response.json();
@@ -112,18 +112,16 @@ export function MultiStepModal({
 
     if (!newOpen) {
       setCurrentStep(1);
-      setIsStepThreeReady(false);
       setSubmitResult(null);
-      setFormData({ email: "", files: [], contextText: "", agentPrompts: {} });
+      setFormData({ email: "", files: [], contextText: "" });
     }
     onOpenChange(newOpen);
   };
 
   const handleCloseSuccess = () => {
     setCurrentStep(1);
-    setIsStepThreeReady(false);
     setSubmitResult(null);
-    setFormData({ email: "", files: [], contextText: "", agentPrompts: {} });
+    setFormData({ email: "", files: [], contextText: "" });
     onOpenChange(false);
   };
 
@@ -196,16 +194,6 @@ export function MultiStepModal({
             }
           />
         );
-      case 3:
-        return (
-          <StepThree
-            prompts={formData.agentPrompts}
-            onChange={(value) => updateFormData("agentPrompts", value)}
-            onReady={setIsStepThreeReady}
-            files={formData.files}
-            contextText={formData.contextText}
-          />
-        );
       default:
         return null;
     }
@@ -262,10 +250,7 @@ export function MultiStepModal({
                   Next
                 </Button>
               ) : (
-                <Button
-                  onClick={handleFinish}
-                  disabled={!isStepThreeReady || isSubmitting}
-                >
+                <Button onClick={handleFinish} disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

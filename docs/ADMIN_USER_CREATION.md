@@ -1,55 +1,38 @@
 # Admin User Creation Flow - Implementation Summary
 
 ## Overview
-This implementation connects the admin user creation flow with internal agents that generate business-specific prompts for each agent type (Support, Business, and Sales).
+This implementation connects the admin user creation flow with internal agents that generate business-specific prompts for each agent type (Support, Business, and Sales). Internal agents are kept truly internal and not exposed as separate API endpoints.
 
 ## Architecture
 
-### 1. API Endpoints
-
-#### `/api/admin/generate-prompts` (POST)
-- **Purpose**: Generate agent-specific prompts using internal agents
-- **Authentication**: Admin-only access
-- **Input**: 
-  - `contextText`: Text description of the business/user
-  - `file-*`: Uploaded files (documents, PDFs, etc.)
-- **Output**: Generated prompts for support, business, and sales agents
-- **Process**:
-  1. Validates admin session
-  2. Extracts files from FormData
-  3. Calls all three internal agents in parallel
-  4. Returns generated prompt complements for each agent
+### 1. API Endpoint
 
 #### `/api/admin/users` (POST)
-- **Purpose**: Create a new user with generated agent prompts
+- **Purpose**: Create a new user with internally-generated agent prompts
 - **Authentication**: Admin-only access
-- **Input**:
+- **Input** (FormData):
   - `email`: User's email address
-  - `agentPrompts`: Object with prompts for each agent (support, business, sales)
+  - `name`: (Optional) User's name
+  - `contextText`: Text description of the business/user
+  - `file-*`: Uploaded files (documents, PDFs, etc.)
 - **Output**: Created user info and generated credentials
 - **Process**:
   1. Validates admin session and input
   2. Checks if user already exists
-  3. Generates random password (12 characters)
-  4. Creates user account with hashed password
-  5. Saves agent prompts to UserAgentParams collection
-  6. Returns user info and plaintext password (shown once)
+  3. Prepares input for internal agents from files and context
+  4. Calls all three internal agents in parallel (Support, Business, Sales)
+  5. Generates random password (12 characters, cryptographically secure)
+  6. Creates user account with hashed password
+  7. Saves internally-generated prompts to UserAgentParams collection
+  8. Returns user info and plaintext password (shown once)
 
 ### 2. Component Updates
 
-#### `StepThree` Component
-- **Changes**:
-  - Added `files` and `contextText` props
-  - Calls `/api/admin/generate-prompts` on mount
-  - Displays loading state while generating prompts
-  - Shows error state with fallback to default prompts
-  - Displays generated prompts in editable textareas
-
 #### `MultiStepModal` Component
 - **Changes**:
+  - Simplified to 2-step flow (removed Step 3)
   - Added `isSubmitting` and `submitResult` state
-  - Passes `files` and `contextText` to StepThree
-  - Calls `/api/admin/users` on finish
+  - Sends FormData with email, files, and context directly to `/api/admin/users`
   - Displays success screen with credentials
   - Displays error screen on failure
   - Prevents modal close during submission
@@ -63,16 +46,11 @@ Step 1: Enter Email
     ↓
 Step 2: Upload Files + Context Text
     ↓
-Step 3: Generate & Review Prompts
-    ├→ API Call: /api/admin/generate-prompts
-    │   ├→ Support Internal Agent
-    │   ├→ Business Internal Agent
-    │   └→ Sales Internal Agent
-    ↓
-Admin Reviews/Edits Prompts
-    ↓
 Finish Button → Create User
-    ├→ API Call: /api/admin/users
+    ├→ API Call: /api/admin/users (FormData)
+    │   ├→ Support Internal Agent (internal)
+    │   ├→ Business Internal Agent (internal)
+    │   ├→ Sales Internal Agent (internal)
     │   ├→ Create User Account
     │   ├→ Generate Password
     │   └→ Save Agent Prompts
@@ -82,7 +60,7 @@ Success Screen with Credentials
 
 ## Internal Agents
 
-The system uses three internal agents to analyze business context and generate domain-specific prompt complements:
+The system uses three internal agents to analyze business context and generate domain-specific prompt complements. **These agents are not exposed as separate API endpoints** - they are called internally by the user creation endpoint.
 
 ### Support Internal Agent
 - Analyzes support-related keywords (SLA, warranty, 24/7, etc.)
@@ -142,10 +120,8 @@ A test script is available at `scripts/test-internal-agents.js` that:
 2. Clicks "Open Multi-Step Modal"
 3. Enters user email (e.g., `newuser@example.com`)
 4. Uploads business documents or pastes context text
-5. Reviews generated prompts for each agent type
-6. Optionally edits prompts
-7. Clicks "Finish" to create user
-8. Receives success message with:
+5. Clicks "Finish" to create user (prompts generated internally)
+6. Receives success message with:
    - Email: `newuser@example.com`
    - Password: (auto-generated, e.g., `aB3$xY9!qW2p`)
 
@@ -153,7 +129,5 @@ A test script is available at `scripts/test-internal-agents.js` that:
 
 - [ ] Email notification to new user with credentials
 - [ ] Password reset flow for new users
-- [ ] Ability to regenerate prompts if unsatisfied
-- [ ] AI-powered prompt refinement based on user feedback
 - [ ] Bulk user creation
 - [ ] User management dashboard
